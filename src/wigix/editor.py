@@ -184,7 +184,7 @@ class Editor:
             if isinstance(st.get("error"), str):
                 st["error"] = st["error"][:200]
             out[name] = {"type": getattr(i, "type_name", ""), **st}
-        return {"running": True, "page": d.page_idx % len(d.pages), "page_name": d.current().name, "integrations": out}
+        return {**d.control_state(), "integrations": out}
 
     def check(self, cfg):
         """Raise ValueError when the config cannot be used; return a list of non-fatal warnings."""
@@ -448,6 +448,13 @@ def make_handler(ed: Editor, extra_hosts=()):
             if not self._guard(True):
                 return
             u = urlparse(self.path)
+            if u.path == "/api/control":
+                if ed.dash is None:
+                    return self._send(409, {"error": "the daemon is not running in this process"})
+                try:
+                    return self._send(200, ed.dash.control(self._json()))
+                except Exception as e:
+                    return self._send(400, {"ok": False, "error": str(e)})
             if u.path == "/api/validate":
                 return self._validate()
             if u.path != "/api/preview":

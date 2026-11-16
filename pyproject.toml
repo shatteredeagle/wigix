@@ -25,3 +25,4 @@ wigix = ["editor_ui/*"]
 
 [project.optional-dependencies]
 dev = ["pytest", "websockets"]
+tray = ["PyQt6"]

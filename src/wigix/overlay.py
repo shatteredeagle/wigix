@@ -46,6 +46,8 @@ class Overlays:
         self.last_touch = time.time()
         self.idle = False
         self.brightness_override: int | None = None
+        self.manual_off = False                       # display paused from the tray / control API
+        self.manual_brightness: int | None = None     # brightness set from the tray / control API (until reload)
         self._splash_until = 0.0
         self._firmware = ""
         self._screensaver = None            # (cfg, widget) cache
@@ -110,6 +112,9 @@ class Overlays:
         self._update_triggers(now)
 
     def _update_idle(self, now):
+        if self.manual_off:                       # a paused display stays off, whatever idle/touch say
+            self.idle, self.brightness_override = False, 0
+            return
         cfg = self.dash.cfg.get("idle")
         if not cfg:
             self.idle, self.brightness_override = False, None
@@ -186,6 +191,8 @@ class Overlays:
 
     def frame(self) -> Image.Image | None:
         """The overlay image to show instead of the page, or None."""
+        if self.manual_off:
+            return Image.new("RGB", (W, H), (0, 0, 0))
         if self._popup:
             return self._render_widget(self._popup[0], close_button=True)
         if time.time() < self._splash_until:

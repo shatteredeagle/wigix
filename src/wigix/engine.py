@@ -359,9 +359,45 @@ class Dashboard:
                 start = None
             time.sleep(0.008)
 
+    def control_state(self) -> dict:
+        """Snapshot for the tray / control API."""
+        o = self.overlays
+        return {"running": True, "connected": self.dev is not None, "page": self.page_idx % len(self.pages),
+                "page_name": self.current().name, "pages": [p.name for p in self.pages], "paused": o.manual_off,
+                "brightness": o.manual_brightness if o.manual_brightness is not None else self.cfg.get("brightness"),
+                "idle": o.idle}
+
+    def control(self, req: dict) -> dict:
+        """Remote control (tray): {"action": next_page|prev_page|page|pause|resume|toggle_pause|brightness|wake}."""
+        a = req.get("action")
+        if a in ("next_page", "prev_page"):
+            self.goto(a)
+        elif a == "page":
+            if req.get("name") not in [p.name for p in self.pages]:
+                raise ValueError(f"no page named {req.get('name')!r}")
+            self.goto(req["name"])
+        elif a in ("pause", "resume", "toggle_pause"):
+            self.overlays.manual_off = (a == "pause") or (a == "toggle_pause" and not self.overlays.manual_off)
+            if not self.overlays.manual_off:
+                self.overlays.last_touch = time.time()
+                self.overlays.brightness_override = None
+        elif a == "brightness":
+            v = req.get("value")
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 <= v <= 100:
+                raise ValueError("brightness value must be a number from 0 to 100")
+            self.overlays.manual_brightness = int(v)
+        elif a == "wake":
+            self.overlays.wake()
+        else:
+            raise ValueError(f"unknown action {a!r}")
+        self._wake.set()
+        return self.control_state()
+
     def _apply_brightness(self, dev):
         """Push the configured ``brightness:`` (0-100) when the device (re)connects or the value changes."""
         want = self.overlays.brightness_override
+        if want is None:
+            want = self.overlays.manual_brightness
         if want is None:
             want = self.cfg.get("brightness")
         if dev is None or want is None:

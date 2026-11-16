@@ -171,3 +171,26 @@ def test_screensaver_widget_draws_and_styles():
     for style in ("bounce", "clock"):
         page = Page({"grid": {"cols": 1, "rows": 1}, "widgets": [{"type": "screensaver", "style": style, "at": [0, 0, 1, 1]}]}, {})
         assert len(page.render().getcolors(100000)) > 2
+
+
+def test_control_pages_pause_and_brightness():
+    d = Dashboard({"brightness": 80, "pages": [{"name": "A", "widgets": [{"type": "text", "text": "a"}]},
+                                               {"name": "B", "widgets": [{"type": "text", "text": "b"}]}]})
+    assert d.control({"action": "next_page"})["page_name"] == "B"
+    assert d.control({"action": "page", "name": "A"})["page_name"] == "A"
+    st = d.control({"action": "pause"})
+    assert st["paused"] and d.overlays.frame().getcolors() == [(1016 * 592, (0, 0, 0))]
+    d.overlays.update()
+    assert d.overlays.brightness_override == 0                 # a paused display is dark
+    assert d.control({"action": "toggle_pause"})["paused"] is False
+    d.overlays.update()
+    assert d.overlays.brightness_override is None and d.overlays.frame() is None
+    assert d.control({"action": "brightness", "value": 30})["brightness"] == 30
+    d._apply_brightness(type("Dev", (), {"brightness": property(lambda s: 0, lambda s, v: setattr(s, "v", v))})())
+    for bad in ({"action": "nope"}, {"action": "page", "name": "Z"}, {"action": "brightness", "value": 101},
+                {"action": "brightness", "value": "x"}, {"action": "brightness", "value": True}):
+        try:
+            d.control(bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"accepted {bad}")

@@ -233,3 +233,26 @@ def test_key_and_type_use_double_dash_separators(monkeypatch):
     d.run_action({"key": "ctrl+alt+t"})
     d.run_action({"type": "hello world"})
     assert calls == [["xdotool", "key", "--", "ctrl+alt+t"], ["xdotool", "type", "--", "hello world"]]
+
+
+# --- control API (used by the tray) --------------------------------------------------------------
+def test_control_endpoint_is_guarded_and_needs_the_daemon(tmp_path):
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("pages:\n- {name: A, widgets: [{type: text}]}\n- {name: B, widgets: [{type: text}]}\n")
+    d = Dashboard(load_config(cfg), str(cfg))
+    for dash_, expect in ((None, 409), (d, 200)):
+        editor = Editor(str(cfg), dash_)
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(editor))
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{srv.server_port}/api/control"
+        body = {"action": "next_page"}
+        assert req(url, "POST", body)[0] == 401                                     # no token
+        assert req(url, "POST", body, {"Cookie": f"wigix_token={editor.token}"})[0] == 403   # no custom header
+        code, out, _ = req(url, "POST", body, authed(editor, **XRW))
+        assert code == expect
+        if expect == 200:
+            assert json.loads(out)["page_name"] == "B"
+            assert req(url, "POST", {"action": "bogus"}, authed(editor, **XRW))[0] == 400
+            st = json.loads(req(url.replace("control", "status"), headers=authed(editor))[1])
+            assert st["connected"] is False and st["pages"] == ["A", "B"] and st["paused"] is False
+        srv.shutdown()
