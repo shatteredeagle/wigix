@@ -1,4 +1,4 @@
-# wigidash
+# wigix
 
 An open-source Linux driver and configurable dashboard for the **G.SKILL WigiDash** USB touch panel
 (1016x592). Think "btop for all your machines" plus alerts, Home Assistant controls, weather, a calendar and
@@ -10,7 +10,7 @@ launcher buttons, laid out on a grid and edited in your browser.
 
 ## What you get
 
-- **Driver** (`wigidash.WigiDash`): show frames, read touch. Protocol notes in [docs/protocol.md](docs/protocol.md).
+- **Driver** (`wigix.WigiDash`): show frames, read touch. Protocol notes in [docs/protocol.md](docs/protocol.md).
 - **Dashboard daemon**: pages of widgets on a grid, touch (tap, swipe between pages, fullscreen a widget), hot
   reload of the config.
 - **Web editor** at `http://localhost:8765`: drag and resize widgets over a live preview, edit their settings, save.
@@ -21,24 +21,24 @@ launcher buttons, laid out on a grid and edited in your browser.
 ## Install
 
 ```sh
-git clone <this repo> && cd wigidash
+git clone <this repo> && cd wigix
 python -m venv .venv && .venv/bin/pip install -e .
 # let your user talk to the panel without root:
-echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0666"' | sudo tee /etc/udev/rules.d/70-wigidash.rules
+echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0666"' | sudo tee /etc/udev/rules.d/70-wigix.rules
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
 ## Run
 
 ```sh
-cp examples/dashboard.yaml ~/.config/wigidash/dashboard.yaml
-.venv/bin/wigidash preview -c ~/.config/wigidash/dashboard.yaml -o preview.png   # no hardware needed
-.venv/bin/wigidash run -c ~/.config/wigidash/dashboard.yaml                      # drive the panel
-.venv/bin/wigidash editor -c ~/.config/wigidash/dashboard.yaml                   # web editor only
+cp examples/dashboard.yaml ~/.config/wigix/dashboard.yaml
+.venv/bin/wigix preview -c ~/.config/wigix/dashboard.yaml -o preview.png   # no hardware needed
+.venv/bin/wigix run -c ~/.config/wigix/dashboard.yaml                      # drive the panel
+.venv/bin/wigix editor -c ~/.config/wigix/dashboard.yaml                   # web editor only
 ```
 
-Start it at login: copy `contrib/wigidash.service` to `~/.config/systemd/user/` and
-`systemctl --user enable --now wigidash`. To get the editor inside the daemon, add `editor: {port: 8765}` to the config.
+Start it at login: copy `contrib/wigix.service` to `~/.config/systemd/user/` and
+`systemctl --user enable --now wigix`. To get the editor inside the daemon, add `editor: {port: 8765}` to the config.
 
 ## Known quirk
 

@@ -9,10 +9,10 @@ import pytest
 from PIL import Image
 
 from fake_http import FakeHTTP
-from wigidash import widgets
-from wigidash.engine import Page
-from wigidash.integrations import Registry, mpris as mpris_mod
-from wigidash.widgets import calendar_agenda, weather
+from wigix import widgets
+from wigix.engine import Page
+from wigix.integrations import Registry, mpris as mpris_mod
+from wigix.widgets import calendar_agenda, weather
 
 widgets.load_plugins()
 

@@ -1,0 +1,15 @@
+# systemd user unit. Install:
+#   mkdir -p ~/.config/systemd/user && cp contrib/wigix.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now wigix
+# Adjust ExecStart to where you installed wigix (pipx: %h/.local/bin/wigix).
+[Unit]
+Description=Wigix dashboard
+After=network-online.target
+
+[Service]
+ExecStart=%h/code/wigix/.venv/bin/wigix run -c %h/.config/wigix/dashboard.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

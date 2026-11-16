@@ -9,7 +9,7 @@ and widgets show "connecting…" / "HA offline" instead of crashing.
 1. In Home Assistant: your profile -> Security -> **Long-lived access tokens** -> Create. Copy it.
 2. Save it to a file only you can read:
    ```sh
-   mkdir -p ~/.config/wigidash && ( umask 077; read -rsp 'token: ' t; printf %s "$t" > ~/.config/wigidash/ha_token )
+   mkdir -p ~/.config/wigix && ( umask 077; read -rsp 'token: ' t; printf %s "$t" > ~/.config/wigix/ha_token )
    ```
 3. Add the integration to your config (the web editor picks it up on save):
    ```yaml
@@ -17,7 +17,7 @@ and widgets show "connecting…" / "HA offline" instead of crashing.
      ha:
        type: home_assistant
        url: http://homeassistant.local:8123
-       token_file: ~/.config/wigidash/ha_token
+       token_file: ~/.config/wigix/ha_token
        # verify: false        # self-signed https
    ```
    Widgets use it automatically when it is the only HA integration; otherwise set `integration: ha`.

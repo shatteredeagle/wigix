@@ -7,10 +7,10 @@ import urllib.request
 import pytest
 from PIL import Image
 
-from wigidash import widgets
-from wigidash.engine import Dashboard, Page
-from wigidash.editor import Editor, make_handler
-from wigidash.render import THEME, set_theme, theme_override
+from wigix import widgets
+from wigix.engine import Dashboard, Page
+from wigix.editor import Editor, make_handler
+from wigix.render import THEME, set_theme, theme_override
 from http.server import ThreadingHTTPServer
 
 widgets.load_plugins()
@@ -132,7 +132,7 @@ def test_editor_rejects_writes_without_custom_header(editor):
     url, cfg = editor
     cur = json.loads(call(url + "/api/config")[1])
     assert call(url + "/api/config", "PUT", cur)[0] == 403
-    assert call(url + "/api/config", "PUT", cur, {"X-Requested-With": "wigidash"})[0] == 200
+    assert call(url + "/api/config", "PUT", cur, {"X-Requested-With": "wigix"})[0] == 200
 
 
 def test_editor_rejects_foreign_host_header(editor):
@@ -143,7 +143,7 @@ def test_editor_rejects_foreign_host_header(editor):
 
 def test_editor_rejects_invalid_config_and_keeps_backup(editor):
     url, cfg = editor
-    h = {"X-Requested-With": "wigidash"}
+    h = {"X-Requested-With": "wigix"}
     bad = {"pages": [{"name": "P", "widgets": [{"type": "no_such_widget"}]}]}
     code, body = call(url + "/api/config", "PUT", bad, h)
     assert code == 400 and b"no_such_widget" in body
@@ -177,3 +177,43 @@ def test_brightness_applied_on_connect_and_on_change():
     assert dev.sets == [40, 70]
     d._apply_brightness(None)                     # no device: no crash
     dash()._apply_brightness(Dev())               # no brightness configured: nothing set
+
+
+def test_key_action_needs_security_flag_and_picks_a_tool(monkeypatch):
+    import wigix.engine as eng
+    calls = []
+    monkeypatch.setattr(eng.subprocess, "Popen", lambda cmd, **kw: calls.append(cmd))
+    monkeypatch.setattr(eng.shutil, "which", lambda n: "/usr/bin/" + n if n == "xdotool" else None)
+    dash().run_action({"key": "ctrl+alt+t"})
+    assert calls == []                                       # off by default
+    dash({"security": {"allow_commands": True}}).run_action({"key": "ctrl+alt+t"})
+    assert calls == [["xdotool", "key", "ctrl+alt+t"]]
+    monkeypatch.setattr(eng.shutil, "which", lambda n: "/usr/bin/" + n if n == "wtype" else None)
+    dash({"security": {"allow_commands": True}}).run_action({"key": "ctrl+m"})
+    assert calls[-1] == ["wtype", "-M", "ctrl", "-k", "m", "-m", "ctrl"]
+
+
+def test_raw_touch_widget_gets_relative_coordinates_and_fps_raises_loop_rate():
+    from wigix.widgets import Widget, widget
+
+    @widget("test_pad")
+    class Pad(Widget):
+        wants_touch = True
+        fps = 12
+
+        def __init__(self, cfg, ctx):
+            super().__init__(cfg, ctx)
+            self.events = []
+
+        def on_touch(self, x, y, down):
+            self.events.append((x, y, down))
+
+        def draw(self, cv, box):
+            pass
+
+    d = Dashboard({"pages": [{"name": "A", "grid": {"cols": 1, "rows": 1, "gap": 10}, "widgets": [{"type": "test_pad"}]}]})
+    d.render_current()
+    w = d.current().items[0][0]
+    assert d.target_fps() == 12 and w.box[0] == 10
+    assert d.touch_target(100, 100) is w
+    assert d.in_close_corner(1000, 20) and not d.in_close_corner(500, 300)

@@ -5,7 +5,7 @@
         type: proxmox
         url: https://pve.lan:8006
         token_id: user@pam!name
-        token_file: ~/.config/wigidash/pve_token   # the token secret
+        token_file: ~/.config/wigix/pve_token   # the token secret
         node: pve                                   # optional: defaults to the first node
         verify: false                               # PVE ships a self-signed certificate
 """

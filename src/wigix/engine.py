@@ -18,7 +18,7 @@ from .integrations import Registry
 from .device import H, W, WigiDash, rgb565
 from .render import THEME, Canvas, set_theme, theme_override
 
-log = logging.getLogger("wigidash")
+log = logging.getLogger("wigix")
 
 
 def load_config(path):
@@ -74,11 +74,17 @@ class Page:
             if only is not None and w is not only:
                 continue
             box = (10, 10, W - 10, H - 10) if only is not None else self.box(at)
+            w.box = box
             try:
                 with theme_override(w.cfg.get("theme")):
                     (w.draw_full if only is not None else w.draw)(cv, box)
             except Exception:
                 log.exception("draw failed: %s", w.type_name)
+            if only is not None:                      # the close target in the top-right corner
+                cx, cy, r = W - 40, 40, 22
+                cv.d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(0, 0, 0), outline=THEME["dim"], width=2)
+                cv.d.line((cx - 8, cy - 8, cx + 8, cy + 8), fill=THEME["text"], width=3)
+                cv.d.line((cx - 8, cy + 8, cx + 8, cy - 8), fill=THEME["text"], width=3)
         return img
 
 
@@ -193,6 +199,11 @@ class Dashboard:
             cmd = act["command"]
             subprocess.Popen(cmd if isinstance(cmd, list) else shlex.split(cmd), start_new_session=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif "key" in act or "type" in act:
+            if not (self.cfg.get("security") or {}).get("allow_commands"):
+                log.warning("key/type action ignored: set `security: {allow_commands: true}` to enable it")
+                return
+            self._send_keys(act)
         elif "url" in act:
             subprocess.Popen(["xdg-open", act["url"]], start_new_session=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -205,13 +216,35 @@ class Dashboard:
         else:
             log.warning("unknown action: %r", act)
 
+    @staticmethod
+    def _send_keys(act):
+        """Press a key combo ({key: "ctrl+shift+m"}) or type text ({type: "hello"}) with whichever tool exists:
+        wtype/ydotool (Wayland) or xdotool (X11 / XWayland windows only)."""
+        key, text = act.get("key"), act.get("type")
+        if shutil.which("wtype"):
+            if key:
+                parts = key.lower().split("+")
+                mods = [m for m in parts[:-1]]
+                cmd = ["wtype"] + [a for m in mods for a in ("-M", m)] + ["-k", parts[-1]] + [a for m in reversed(mods) for a in ("-m", m)]
+            else:
+                cmd = ["wtype", text]
+        elif shutil.which("ydotool"):
+            cmd = ["ydotool", "type", text] if text else ["ydotool", "key", key]   # ydotool wants key codes: see its docs
+        elif shutil.which("xdotool"):
+            cmd = ["xdotool", "key", key] if key else ["xdotool", "type", text]
+        else:
+            log.warning("no key-sending tool found (install wtype, ydotool or xdotool)")
+            return
+        subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     def handle_tap(self, x, y):
         now = time.time()
         if now - self._last_action < 0.35:   # debounce contact bounce
             return
         self._last_action = now
-        if self.full is not None:            # any tap leaves fullscreen
-            self.run_action("close")
+        if self.full is not None:            # any tap leaves fullscreen (raw-touch widgets: only the corner)
+            if not self.full.wants_touch or self.in_close_corner(x, y):
+                self.run_action("close")
             return
         w = self.current().hit(x, y)
         if w is None:
@@ -223,8 +256,18 @@ class Dashboard:
         except Exception:
             log.exception("tap action failed")
 
+    def touch_target(self, x, y):
+        """The widget under a screen point: the fullscreen one, else the one on the current page."""
+        if self.full is not None:
+            return self.full
+        return self.current().hit(x, y)
+
+    @staticmethod
+    def in_close_corner(x, y):
+        return x > W - 80 and y < 80
+
     def _touch_loop(self):
-        start, swiped = None, False
+        start, swiped, raw = None, False, None
         while not self._stop.is_set():
             dev = self.dev
             if dev is None:
@@ -237,6 +280,21 @@ class Dashboard:
                 continue
             if t is None:
                 time.sleep(0.016)
+                continue
+            if t.down and start is None:              # a new touch begins: raw-touch widgets take it over
+                w = self.touch_target(t.x, t.y)
+                raw = w if (w is not None and w.wants_touch and not self.in_close_corner(t.x, t.y)) else None
+            if raw is not None:
+                try:
+                    raw.on_touch(t.x - raw.box[0], t.y - raw.box[1], t.down)
+                except Exception:
+                    log.exception("on_touch failed")
+                self._wake.set()
+                if not t.down:
+                    raw, start = None, None
+                else:
+                    start = start or (t.x, t.y, time.time())
+                time.sleep(0.008)
                 continue
             if t.down:
                 if start is None:
@@ -272,6 +330,17 @@ class Dashboard:
             except Exception as e:
                 log.debug("brightness failed: %s", e)
 
+    MAX_FPS = 17.0        # the USB link tops out around here (see docs/protocol.md)
+
+    def target_fps(self):
+        """Config ``fps`` (default 2), raised to what visible animated/video widgets ask for."""
+        want = float(self.cfg.get("fps", 2))
+        page = self.current()
+        for w, _ in page.items:
+            if (self.full is None or w is self.full) and w.fps:
+                want = max(want, float(w.fps))
+        return min(want, self.MAX_FPS)
+
     def render_current(self):
         page = self.current()
         full = self.full if self.full is not None and any(w is self.full for w, _ in page.items) else None
@@ -297,12 +366,12 @@ class Dashboard:
             from .editor import serve
             serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False,
                   allowed_hosts=ecfg.get("allowed_hosts", ()))
-        fps = float(self.cfg.get("fps", 2))
         rotate = float(self.cfg.get("page_seconds", 0))
         last_flip = time.time()
         dev, last_hash, last_sent = None, None, 0.0
         while True:
             t0 = time.time()
+            fps = self.target_fps()
             self._check_reload()
             if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
                 self.page_idx += 1

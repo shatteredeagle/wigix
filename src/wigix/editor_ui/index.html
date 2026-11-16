@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WigiDash editor</title>
+<title>Wigix editor</title>
 <style>
 :root{--bg:#0d1016;--panel:#161a22;--card:#1f242e;--line:#2c3340;--text:#e8ecf2;--dim:#8a93a3;--accent:#569cff;--ok:#4ad682;--crit:#f05454}
 @media (prefers-color-scheme:light){:root{--bg:#f1f3f7;--panel:#fff;--card:#eef1f6;--line:#d4d9e2;--text:#1b2029;--dim:#68718a}}
@@ -26,7 +26,7 @@ label{display:block;margin:8px 0 2px;color:var(--dim);font-size:12px}input[type=
 .help{color:var(--dim);font-size:11px;margin-top:2px}#msg{font-size:13px}#msg.err{color:var(--crit)}#msg.ok{color:var(--ok)}
 @media (max-width:900px){main{grid-template-columns:1fr}aside{border:0!important}}
 </style></head><body>
-<header><h1>WigiDash editor</h1>
+<header><h1>Wigix editor</h1>
  <label style="margin:0">Grid <input id="cols" type="number" min="1" max="8" style="width:56px"> × <input id="rows" type="number" min="1" max="6" style="width:56px"></label>
  <label style="margin:0">Gap <input id="gap" type="number" min="0" max="40" style="width:56px"></label>
  <label style="margin:0">Brightness <input id="bright" type="range" min="5" max="100" style="width:110px;vertical-align:middle"> <span id="brv"></span></label>
@@ -40,7 +40,7 @@ label{display:block;margin:8px 0 2px;color:var(--dim);font-size:12px}input[type=
   <h2 style="margin-top:18px">Widget</h2><div id="inspector"><div class="help">Select a widget on the preview.</div></div></aside>
 </main>
 <script>
-const FW=1016, FH=592, XRW={'X-Requested-With':'wigidash'}; let cfg, types={}, page=0, sel=null, dirty=false, saved='';
+const FW=1016, FH=592, XRW={'X-Requested-With':'wigix'}; let cfg, types={}, page=0, sel=null, dirty=false, saved='';
 const $=s=>document.querySelector(s), el=(t,p={},...k)=>{const e=Object.assign(document.createElement(t),p);k.forEach(c=>e.append(c));return e};
 const msg=(t,c='')=>{const m=$('#msg');m.textContent=t;m.className=c};
 const P=()=>cfg.pages[page], grid=()=>Object.assign({cols:4,rows:3,gap:10},P().grid||{});

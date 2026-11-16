@@ -22,7 +22,7 @@ integrations:
   api:
     type: http
     base_url: https://api.example.com
-    token_file: ~/.config/wigidash/api_token   # optional bearer token (or token: / env HTTP_TOKEN)
+    token_file: ~/.config/wigix/api_token   # optional bearer token (or token: / env HTTP_TOKEN)
     headers: {Accept: application/json}        # optional extra headers, e.g. {X-Api-Key: ...}
     paths: [/v1/stats, /v1/queue]              # polled every `interval` seconds (default 30)
     verify: true                               # false for self-signed https
@@ -51,7 +51,7 @@ integrations:
   prom:
     type: prometheus
     url: https://prometheus.example.com
-    token_file: ~/.config/wigidash/prom_token  # bearer token, or username + password(_file) for basic auth
+    token_file: ~/.config/wigix/prom_token  # bearer token, or username + password(_file) for basic auth
     queries:                                   # name -> PromQL (instant query, /api/v1/query)
       cpu: 'avg(1 - rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100'
     ranges:                                    # name -> range query (/api/v1/query_range)
@@ -81,7 +81,7 @@ widgets:
 integrations:
   docker:
     type: docker
-    socket: /var/run/docker.sock      # default; the user running wigidash must be able to read it
+    socket: /var/run/docker.sock      # default; the user running wigix must be able to read it
     # url: tcp://docker-host.lan:2375 # or a TCP / https endpoint
 widgets:
   - {type: docker_containers, at: [0, 0, 2, 2], title: Containers, only_problems: false,

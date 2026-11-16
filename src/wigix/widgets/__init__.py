@@ -13,7 +13,7 @@ import logging
 import pathlib
 import pkgutil
 
-log = logging.getLogger("wigidash")
+log = logging.getLogger("wigix")
 REGISTRY: dict[str, type] = {}
 
 
@@ -28,6 +28,9 @@ def widget(name: str):
 class Widget:
     interval = 2.0  # seconds between update() calls
     fields: list = []  # config schema for the editor: [{name, type: string|int|float|bool|color|yaml, default, help}]
+    fps: float | None = None   # set (e.g. 15) by animated/video widgets: the dashboard redraws at least this fast while visible
+    wants_touch = False        # True: receive raw touch via on_touch() instead of tap/swipe handling
+    box = (0, 0, 0, 0)         # the screen rectangle (x0, y0, x1, y1) of the last draw(); set by the dashboard
 
     def __init__(self, cfg: dict, ctx: dict):
         self.cfg = cfg
@@ -39,6 +42,11 @@ class Widget:
 
     def draw(self, cv, box) -> None:
         raise NotImplementedError
+
+    def on_touch(self, x: int, y: int, down: bool) -> None:
+        """Raw touch for widgets with ``wants_touch = True``: called per sample while a finger that started on the
+        widget is down (``down=True``) and once on release (``down=False``). Coordinates are relative to the
+        widget's box. Use ``self.box`` for its size. In fullscreen the top-right corner closes the widget."""
 
     def draw_full(self, cv, box) -> None:
         """Fullscreen view (``on_tap: fullscreen``). Defaults to the normal drawing at the bigger size."""
@@ -55,17 +63,17 @@ class Widget:
 
 
 def load_plugins(extra_dirs=()):
-    """Import built-ins, third-party entry points (group ``wigidash.widgets``), and *.py in extra_dirs."""
+    """Import built-ins, third-party entry points (group ``wigix.widgets``), and *.py in extra_dirs."""
     for m in pkgutil.iter_modules(__path__):          # every module in this package registers its widgets
         importlib.import_module(f"{__name__}.{m.name}")
-    for ep in importlib.metadata.entry_points(group="wigidash.widgets"):
+    for ep in importlib.metadata.entry_points(group="wigix.widgets"):
         try:
             ep.load()
         except Exception:
             log.exception("failed to load widget plugin %s", ep.name)
     for d in extra_dirs:
         for path in sorted(pathlib.Path(d).expanduser().glob("*.py")):
-            spec = importlib.util.spec_from_file_location(f"wigidash_user_{path.stem}", path)
+            spec = importlib.util.spec_from_file_location(f"wigix_user_{path.stem}", path)
             m = importlib.util.module_from_spec(spec)
             try:
                 spec.loader.exec_module(m)

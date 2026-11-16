@@ -6,7 +6,7 @@ Six integrations and five widgets for the things you glance at all day. Integrat
 read) or an environment variable; prefer the file:
 
 ```sh
-mkdir -p ~/.config/wigidash && ( umask 077; read -rsp 'secret: ' s; printf %s "$s" > ~/.config/wigidash/pihole_pw )
+mkdir -p ~/.config/wigix && ( umask 077; read -rsp 'secret: ' s; printf %s "$s" > ~/.config/wigix/pihole_pw )
 ```
 
 Every widget shows "loading..." until the first poll succeeds and "offline" (or a specific message) if it
@@ -14,10 +14,10 @@ cannot connect. When a later poll fails, the last good values stay on screen.
 
 ```yaml
 integrations:
-  pihole:  {type: pihole,  url: http://pihole.lan, password_file: ~/.config/wigidash/pihole_pw}
-  unifi:   {type: unifi,   url: https://unifi.lan, username: wigidash, password_file: ~/.config/wigidash/unifi_pw}
+  pihole:  {type: pihole,  url: http://pihole.lan, password_file: ~/.config/wigix/pihole_pw}
+  unifi:   {type: unifi,   url: https://unifi.lan, username: wigix, password_file: ~/.config/wigix/unifi_pw}
   weather: {type: open_meteo, latitude: 48.8566, longitude: 2.3522, units: metric}
-  cal:     {type: ical, url_file: ~/.config/wigidash/cal_url, timezone: Europe/Paris}
+  cal:     {type: ical, url_file: ~/.config/wigix/cal_url, timezone: Europe/Paris}
   media:   {type: mpris}
 
 pages:
@@ -54,7 +54,7 @@ It finds its integration by `integration:` or, if there is exactly one Pi-hole/A
 ## UniFi: `unifi`
 
 ```yaml
-unifi: {type: unifi, url: https://unifi.lan, username: wigidash, password_file: ~/.config/wigidash/unifi_pw, site: default}
+unifi: {type: unifi, url: https://unifi.lan, username: wigix, password_file: ~/.config/wigix/unifi_pw, site: default}
 ```
 
 For UniFi OS consoles (UDM, UDR, Cloud Key Gen2+, ...). Create a **local** user with read-only access to Network;
@@ -81,7 +81,7 @@ hides it). Codes without a known icon still show their number.
 ## Calendar: `ical` and `calendar_agenda`
 
 ```yaml
-cal: {type: ical, url_file: ~/.config/wigidash/cal_url, days: 7, timezone: Europe/Paris}
+cal: {type: ical, url_file: ~/.config/wigix/cal_url, days: 7, timezone: Europe/Paris}
 # or a local file:  {type: ical, file: ~/calendar.ics}
 ```
 

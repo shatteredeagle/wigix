@@ -4,7 +4,7 @@
       api:
         type: http
         base_url: https://api.example.com
-        token_file: ~/.config/wigidash/api_token   # optional bearer token (or token: / env HTTP_TOKEN)
+        token_file: ~/.config/wigix/api_token   # optional bearer token (or token: / env HTTP_TOKEN)
         headers: {Accept: application/json}        # optional extra headers
         paths: [/v1/stats, /v1/queue]              # polled every `interval` seconds
         interval: 30

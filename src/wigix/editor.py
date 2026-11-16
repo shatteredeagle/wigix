@@ -23,7 +23,7 @@ from .device import H, W
 from .engine import Dashboard, Page, load_config, save_config
 from .render import THEME, Canvas
 
-log = logging.getLogger("wigidash.editor")
+log = logging.getLogger("wigix.editor")
 UI = pathlib.Path(__file__).with_name("editor_ui")
 
 
@@ -137,7 +137,7 @@ def make_handler(ed: Editor, extra_hosts=()):
             if host not in allowed:
                 self._send(403, {"error": "forbidden host"})
                 return False
-            if write and self.headers.get("X-Requested-With") != "wigidash":
+            if write and self.headers.get("X-Requested-With") != "wigix":
                 self._send(403, {"error": "missing X-Requested-With header"})
                 return False
             return True

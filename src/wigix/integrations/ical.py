@@ -3,7 +3,7 @@
     integrations:
       cal:
         type: ical
-        url_file: ~/.config/wigidash/cal_url      # the secret address lives in a 0600 file (or `url:` / $ICAL_URL)
+        url_file: ~/.config/wigix/cal_url      # the secret address lives in a 0600 file (or `url:` / $ICAL_URL)
         # file: ~/calendar.ics                    # instead of a URL
         days: 7                                   # how far ahead to look
         # timezone: Europe/Paris                  # for floating times and display; default: this machine's zone

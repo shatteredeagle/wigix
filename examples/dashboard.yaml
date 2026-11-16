@@ -1,14 +1,14 @@
-# Example dashboard. Run:  wigidash preview -c examples/dashboard.yaml   (writes preview.png)
-#                          wigidash run -c examples/dashboard.yaml       (drives the panel)
+# Example dashboard. Run:  wigix preview -c examples/dashboard.yaml   (writes preview.png)
+#                          wigix run -c examples/dashboard.yaml       (drives the panel)
 fps: 2
 page_seconds: 0            # >0 rotates through pages
-plugin_dirs: ["~/.config/wigidash/widgets"]   # drop your own widget .py files here
+plugin_dirs: ["~/.config/wigix/widgets"]   # drop your own widget .py files here
 
 # integrations:                                # shared connections, see docs/home-assistant.md
 #   ha:
 #     type: home_assistant
 #     url: http://homeassistant.local:8123
-#     token_file: ~/.config/wigidash/ha_token   # long-lived access token
+#     token_file: ~/.config/wigix/ha_token   # long-lived access token
 
 pages:
   - name: Overview

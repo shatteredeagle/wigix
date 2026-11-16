@@ -4,7 +4,7 @@
       tower:
         type: unraid
         url: https://tower.lan/graphql
-        api_key_file: ~/.config/wigidash/unraid_key
+        api_key_file: ~/.config/wigix/unraid_key
         verify: false
 """
 import requests

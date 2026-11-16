@@ -4,10 +4,10 @@ import pytest
 from PIL import Image, ImageDraw
 
 from fake_ha import TOKEN, FakeHA
-from wigidash import widgets
-from wigidash.engine import Page
-from wigidash.integrations import Registry, normalize
-from wigidash.render import Canvas
+from wigix import widgets
+from wigix.engine import Page
+from wigix.integrations import Registry, normalize
+from wigix.render import Canvas
 
 widgets.load_plugins()
 

@@ -5,7 +5,7 @@ from .engine import Dashboard, load_config
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="wigidash")
+    ap = argparse.ArgumentParser(prog="wigix")
     sub = ap.add_subparsers(dest="cmd", required=True)
     run = sub.add_parser("run", help="run the dashboard on the panel")
     run.add_argument("-c", "--config", required=True)

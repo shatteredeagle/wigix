@@ -1,9 +1,9 @@
 import pytest
 
 from fake_http import FakeHTTP
-from wigidash import widgets
-from wigidash.engine import Page
-from wigidash.integrations import Registry
+from wigix import widgets
+from wigix.engine import Page
+from wigix.integrations import Registry
 
 widgets.load_plugins()
 

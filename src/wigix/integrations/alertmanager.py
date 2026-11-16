@@ -4,7 +4,7 @@
       alerts:
         type: alertmanager
         url: https://alertmanager.example.com
-        token_file: ~/.config/wigidash/am_token     # optional; or username/password(_file) for basic auth
+        token_file: ~/.config/wigix/am_token     # optional; or username/password(_file) for basic auth
         verify: true
 
 ``data`` is a list of ``{name, severity, summary, instance}``, most severe first.

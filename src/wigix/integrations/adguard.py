@@ -5,7 +5,7 @@
         type: adguard
         url: http://adguard.lan:3000
         username: admin
-        password_file: ~/.config/wigidash/adguard_pw
+        password_file: ~/.config/wigix/adguard_pw
         # verify: false          # self-signed https
 
 ``data`` has the same keys as the Pi-hole integration:

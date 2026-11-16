@@ -1,7 +1,7 @@
 import subprocess, time
 from PIL import Image, ImageDraw
 import struct
-from wigidash import W, H, WigiDash, rgb565
+from wigix import W, H, WigiDash, rgb565
 im = Image.new("RGB", (W, H), "black"); dr = ImageDraw.Draw(im)
 for i, c in enumerate(["red", "green", "blue", "white", "yellow"]):
     dr.rectangle([i*W//5, 0, (i+1)*W//5, 150], fill=c)

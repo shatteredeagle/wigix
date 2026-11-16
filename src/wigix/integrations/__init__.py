@@ -9,7 +9,7 @@ import importlib
 import logging
 import pkgutil
 
-log = logging.getLogger("wigidash")
+log = logging.getLogger("wigix")
 REGISTRY: dict[str, type] = {}
 
 

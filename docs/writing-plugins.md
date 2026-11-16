@@ -1,9 +1,9 @@
 # Writing widgets and integrations
 
 Everything here is a plain Python module dropped into a folder. Built-ins live in
-`src/wigidash/widgets/` and `src/wigidash/integrations/` and are discovered automatically (no registry to edit).
+`src/wigix/widgets/` and `src/wigix/integrations/` and are discovered automatically (no registry to edit).
 Your own go in a folder listed under `plugin_dirs:` in the config, or in a package that declares a
-`wigidash.widgets` entry point.
+`wigix.widgets` entry point.
 
 ## An integration = a shared connection
 
@@ -11,7 +11,7 @@ Configured once, used by many widgets:
 
 ```yaml
 integrations:
-  pve: {type: proxmox, url: https://pve:8006, token_id: u@pam!t, token_file: ~/.config/wigidash/pve_token}
+  pve: {type: proxmox, url: https://pve:8006, token_id: u@pam!t, token_file: ~/.config/wigix/pve_token}
 ```
 
 Most integrations just poll an API. Subclass `PollingIntegration` (`integrations/polling.py`):

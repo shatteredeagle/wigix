@@ -3,7 +3,7 @@
     integrations:
       docker:
         type: docker
-        socket: /var/run/docker.sock        # default; the user running wigidash needs access to it
+        socket: /var/run/docker.sock        # default; the user running wigix needs access to it
         # url: tcp://docker-host.lan:2375   # or a TCP endpoint (http:// and https:// work too)
         # verify: false                     # https endpoints only
 

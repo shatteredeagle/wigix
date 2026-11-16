@@ -7,7 +7,7 @@ import time
 
 from . import Integration
 
-log = logging.getLogger("wigidash")
+log = logging.getLogger("wigix")
 
 
 class PollingIntegration(Integration):

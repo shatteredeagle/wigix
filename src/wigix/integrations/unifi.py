@@ -4,8 +4,8 @@
       unifi:
         type: unifi
         url: https://unifi.lan                     # the console, not the controller port 8443
-        username: wigidash                         # a local read-only account is enough
-        password_file: ~/.config/wigidash/unifi_pw
+        username: wigix                         # a local read-only account is enough
+        password_file: ~/.config/wigix/unifi_pw
         site: default
         # verify: true                             # consoles ship a self-signed cert; set true if you installed a real one
 

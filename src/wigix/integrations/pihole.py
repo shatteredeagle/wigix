@@ -4,9 +4,9 @@
       pihole:
         type: pihole
         url: http://pihole.lan                     # v6: web interface URL
-        password_file: ~/.config/wigidash/pihole_pw   # v6 web/app password (omit when none is set)
+        password_file: ~/.config/wigix/pihole_pw   # v6 web/app password (omit when none is set)
         # version: 5                                # legacy v5: use api_token(_file) instead of a password
-        # api_token_file: ~/.config/wigidash/pihole_token
+        # api_token_file: ~/.config/wigix/pihole_token
         # verify: false                             # self-signed https
 
 ``data`` is normalised so widgets do not care about the version (same keys as the AdGuard integration):

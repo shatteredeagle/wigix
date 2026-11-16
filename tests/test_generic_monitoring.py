@@ -2,10 +2,10 @@
 import pytest
 
 from fake_http import FakeHTTP, FakeUnixHTTP
-from wigidash import widgets
-from wigidash.engine import Page
-from wigidash.integrations import Registry
-from wigidash.integrations.http import json_path
+from wigix import widgets
+from wigix.engine import Page
+from wigix.integrations import Registry
+from wigix.integrations.http import json_path
 
 widgets.load_plugins()
 
@@ -129,7 +129,7 @@ def test_json_value_widget(srv):
 
 
 def test_json_value_color_rules_pick_color():
-    from wigidash.widgets.http import format_value, rule_color
+    from wigix.widgets.http import format_value, rule_color
     cfg = {"color_rules": [{"above": 80, "color": "#ff0000"}, {"below": 10, "color": "#0000ff"}]}
     assert rule_color(cfg, "90") == (255, 0, 0) and rule_color(cfg, 5) == (0, 0, 255)
     assert rule_color(cfg, 50) != (255, 0, 0) and rule_color(cfg, "text") == rule_color({}, 1)
@@ -329,8 +329,8 @@ def test_docker_errors_keep_data(dock, tmp_path):
 
 
 def test_docker_colors():
-    from wigidash.render import THEME
-    from wigidash.widgets.docker import container_color as cc
+    from wigix.render import THEME
+    from wigix.widgets.docker import container_color as cc
     assert cc({"state": "running", "status": "Up 1h"}) == THEME["ok"]
     assert cc({"state": "running", "status": "Up 1h (unhealthy)"}) == THEME["crit"]
     assert cc({"state": "running", "status": "Up 1s (health: starting)"}) == THEME["warn"]
@@ -433,8 +433,8 @@ def test_every_widget_has_editor_fields():
 
 
 def test_fit_text_shrinks_then_truncates():
-    from wigidash.render import font
-    from wigidash.widgets.http import fit_text
+    from wigix.render import font
+    from wigix.widgets.http import fit_text
     assert fit_text("short", 20, 400) == ("short", 20)
     text, size = fit_text("a" * 60, 20, 150)
     assert size == 14 and text.endswith("…") and font(size).getlength(text) <= 150

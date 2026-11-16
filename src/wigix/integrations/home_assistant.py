@@ -5,7 +5,7 @@ Config (under ``integrations:``)::
     ha:
       type: home_assistant
       url: http://homeassistant.local:8123      # or https://...
-      token_file: ~/.config/wigidash/ha_token   # long-lived access token (or `token:` / $HA_TOKEN)
+      token_file: ~/.config/wigix/ha_token   # long-lived access token (or `token:` / $HA_TOKEN)
       verify: true                               # TLS verification for https URLs
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ import websocket
 from . import Integration, integration
 from ..render import read_secret
 
-log = logging.getLogger("wigidash.ha")
+log = logging.getLogger("wigix.ha")
 
 
 @integration("home_assistant")

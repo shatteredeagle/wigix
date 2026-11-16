@@ -12,7 +12,7 @@ for interoperability. Nothing here is vendor code. Corrections welcome.
 | Interface | one vendor-specific interface (class 0xFF), one bulk OUT endpoint `0x01` (512 B packets) |
 | Tested firmware | `1.0.20241006.1755` |
 
-The device is not HID. Touch input is not documented here yet.
+The device is not HID: everything goes over control requests on endpoint 0 plus the one bulk OUT endpoint.
 
 ## Display
 
@@ -33,18 +33,46 @@ Alternate `buf` between 0 and 1 each frame. The vendor software sometimes skips 
 consecutive frames and sends several `0x61` + bulk pairs before a commit; those partial-update
 semantics are not yet understood.
 
+## Startup handshake
+
+The vendor app does this before the first frame, and **touch reports stay silent without it** (and a frame):
+
+1. IN `0x05` (13 bytes), `0x00` (3 bytes, `"WD"`), `0x04` (64 bytes, firmware string), `0x10` (48 bytes, device info), `0x50` (1 byte, brightness)
+2. OUT `0x12` (no data)
+3. send a frame (see Display)
+
+## Touch
+
+Reported in the 8-byte status read (IN `0x33`, polled ~20-60 Hz):
+
+```
+[state, 0xEA, x_lo, x_hi, y_lo, y_hi, 0, 0]
+```
+
+`state` 1 = finger down/moving, 2 = lift (carries the last coordinates), 0 = trailing report after a lift. All zeros =
+idle. Coordinates are in screen pixels (0..1015, 0..591). A quick tap is `1, 2, 0`. Contact can bounce on firm presses,
+so debounce taps.
+
+## Brightness
+
+- Read: IN `0x50`, 1 byte (percent).
+- Set: OUT `0x51`, 1 byte (percent 0-100), takes effect immediately and is **not** persisted.
+- The vendor app's "Save" additionally sends OUT `0x11` (48-byte device-config block: `[0x01, brightness, ..., "name", ..., checksum]`
+  x4) then OUT `0x14`, which persist settings to flash. Not implemented here: it rewrites the device's stored
+  configuration, and re-sending the brightness at startup is enough.
+
 ## Status / info (IN, `bmRequestType = 0xA1`, wIndex 0)
 
 | Request | Length | Meaning (observed) |
 |---|---|---|
-| `0x33` | 8 | status poll; the vendor app polls this ~20 Hz; returns zeros when idle |
+| `0x33` | 8 | status + touch report (above); the vendor app polls it ~20 Hz |
 | `0x00` | 3 | `"WD"` |
 | `0x04` | 64 | firmware string, e.g. `WigiDash-1.0_20241006_1755` |
 | `0x05` | 13 | version/serial-like string |
 | `0x10` | 48 | device info; contains the name ("New WigiDash") |
-| `0x50` | 1 | unknown (`"2"`) |
+| `0x50` | 1 | brightness percent |
 
-`0x12` (OUT, no data) is sent once after the first commit; purpose unknown.
+`0x12` (OUT, no data) is sent once during startup; purpose unknown (harmless to send).
 
 ## Quirks
 
@@ -56,4 +84,6 @@ semantics are not yet understood.
 
 ## Unknown / TODO
 
-Touch input reports, brightness, partial updates, the exact meaning of `0x12`, `0x50`, `0x33`.
+Partial-frame updates (the vendor app sometimes sends several `0x61` + bulk pairs between commits), the meaning
+of `0x12`, the full `0x11` config block, the update-mode flashing protocol, and whether other firmware versions
+differ.

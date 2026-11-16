@@ -5,9 +5,9 @@
         type: prometheus
         url: https://prometheus.example.com
         # auth (optional): a bearer token, or HTTP basic
-        token_file: ~/.config/wigidash/prom_token
-        # username: wigidash
-        # password_file: ~/.config/wigidash/prom_password
+        token_file: ~/.config/wigix/prom_token
+        # username: wigix
+        # password_file: ~/.config/wigix/prom_password
         verify: true
         queries:
           cpu: 'avg(1 - rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100'
