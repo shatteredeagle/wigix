@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw
 from . import widgets
 from .integrations import Registry
 from .device import H, W, WigiDash, rgb565
+from .overlay import Overlays
 from .render import THEME, Canvas, set_theme, theme_override
 
 log = logging.getLogger("wigix")
@@ -101,6 +102,7 @@ class Dashboard:
         self.page_idx = 0
         self.dev = None
         self.full = None            # widget shown fullscreen, if any
+        self.overlays = Overlays(self)
         self._wake = threading.Event()   # set to redraw immediately
         self._last_action = 0.0
         self._stop = threading.Event()
@@ -199,6 +201,8 @@ class Dashboard:
             cmd = act["command"]
             subprocess.Popen(cmd if isinstance(cmd, list) else shlex.split(cmd), start_new_session=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif "popup" in act:
+            self.overlays.show_popup(act["popup"], float(act.get("seconds", 15)))
         elif "key" in act or "type" in act:
             if not (self.cfg.get("security") or {}).get("allow_commands"):
                 log.warning("key/type action ignored: set `security: {allow_commands: true}` to enable it")
@@ -242,6 +246,9 @@ class Dashboard:
         if now - self._last_action < 0.35:   # debounce contact bounce
             return
         self._last_action = now
+        if self.overlays.popup_active():      # a tap dismisses a popup
+            self.overlays.close_popup()
+            return
         if self.full is not None:            # any tap leaves fullscreen (raw-touch widgets: only the corner)
             if not self.full.wants_touch or self.in_close_corner(x, y):
                 self.run_action("close")
@@ -267,7 +274,7 @@ class Dashboard:
         return x > W - 80 and y < 80
 
     def _touch_loop(self):
-        start, swiped, raw = None, False, None
+        start, swiped, raw, swallow = None, False, None, False
         while not self._stop.is_set():
             dev = self.dev
             if dev is None:
@@ -280,6 +287,15 @@ class Dashboard:
                 continue
             if t is None:
                 time.sleep(0.016)
+                continue
+            if t.down and start is None and not swallow:
+                swallow = self.overlays.on_touch(True)           # waking from idle: this touch is only a wake-up
+            elif t.down:
+                self.overlays.last_touch = time.time()
+            if swallow:
+                if not t.down:
+                    swallow = False
+                time.sleep(0.008)
                 continue
             if t.down and start is None:              # a new touch begins: raw-touch widgets take it over
                 w = self.touch_target(t.x, t.y)
@@ -306,7 +322,9 @@ class Dashboard:
                         and abs(dx) > 1.5 * abs(dy)):
                     swiped = True
                     self._last_action = time.time()
-                    if self.full is not None:
+                    if self.overlays.popup_active():
+                        self.overlays.close_popup()
+                    elif self.full is not None:
                         self.run_action("close")
                     else:
                         self.goto("next_page" if dx < 0 else "prev_page")
@@ -320,7 +338,9 @@ class Dashboard:
 
     def _apply_brightness(self, dev):
         """Push the configured ``brightness:`` (0-100) when the device (re)connects or the value changes."""
-        want = self.cfg.get("brightness")
+        want = self.overlays.brightness_override
+        if want is None:
+            want = self.cfg.get("brightness")
         if dev is None or want is None:
             return
         if getattr(dev, "_wanted_brightness", None) != want:
@@ -335,6 +355,9 @@ class Dashboard:
     def target_fps(self):
         """Config ``fps`` (default 2), raised to what visible animated/video widgets ask for."""
         want = float(self.cfg.get("fps", 2))
+        ov = self.overlays.fps()
+        if ov:
+            return min(max(want, ov), self.MAX_FPS)
         page = self.current()
         for w, _ in page.items:
             if (self.full is None or w is self.full) and w.fps:
@@ -376,14 +399,17 @@ class Dashboard:
             if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
                 self.page_idx += 1
                 last_flip = t0
+            self.overlays.update(t0)
             self._apply_brightness(dev)
-            frame = rgb565(self.render_current())
+            frame = rgb565(self.overlays.frame() or self.render_current())
             h = hashlib.blake2b(frame, digest_size=8).digest()
             if h != last_hash or t0 - last_sent > 5:
                 try:
                     if dev is None:
                         dev = self.dev = WigiDash()
-                        log.info("WigiDash connected: %s", dev.info())
+                        info = dev.info()
+                        log.info("WigiDash connected: %s", info)
+                        self.overlays.device_connected(info)
                     dev.show(frame)
                     last_hash, last_sent = h, t0
                 except Exception as e:
