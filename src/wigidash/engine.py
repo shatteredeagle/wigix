@@ -260,6 +260,18 @@ class Dashboard:
                 start = None
             time.sleep(0.008)
 
+    def _apply_brightness(self, dev):
+        """Push the configured ``brightness:`` (0-100) when the device (re)connects or the value changes."""
+        want = self.cfg.get("brightness")
+        if dev is None or want is None:
+            return
+        if getattr(dev, "_wanted_brightness", None) != want:
+            try:
+                dev.brightness = want
+                dev._wanted_brightness = want
+            except Exception as e:
+                log.debug("brightness failed: %s", e)
+
     def render_current(self):
         page = self.current()
         full = self.full if self.full is not None and any(w is self.full for w, _ in page.items) else None
@@ -295,6 +307,7 @@ class Dashboard:
             if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
                 self.page_idx += 1
                 last_flip = t0
+            self._apply_brightness(dev)
             frame = rgb565(self.render_current())
             h = hashlib.blake2b(frame, digest_size=8).digest()
             if h != last_hash or t0 - last_sent > 5:

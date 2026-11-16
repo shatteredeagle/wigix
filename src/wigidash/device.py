@@ -54,6 +54,17 @@ class WigiDash:
         return {"firmware": self._read(0x04, 64).split(b"\0")[0].decode(),
                 "name": self._read(0x10, 48)[8:].split(b"\0")[0].decode()}
 
+    @property
+    def brightness(self) -> int:
+        """Current backlight level, 0-100 (IN 0x50)."""
+        return self._read(0x50, 1)[0]
+
+    @brightness.setter
+    def brightness(self, percent: int):
+        """Set the backlight, 0-100, effective immediately (OUT 0x51). Not saved to the device's flash,
+        so it reverts at power-up: set it each time you connect."""
+        self.ctrl(0x51, 0, bytes([max(0, min(100, int(percent)))]))
+
     def show(self, frame: bytes):
         """Display one RGB565 frame (use rgb565() to make one from a PIL image)."""
         assert len(frame) == W * H * 2

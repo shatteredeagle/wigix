@@ -152,3 +152,28 @@ def test_editor_rejects_invalid_config_and_keeps_backup(editor):
     good = {"pages": [{"name": "P", "widgets": [{"type": "text", "text": "new"}]}]}
     assert call(url + "/api/config", "PUT", good, h)[0] == 200
     assert (cfg.parent / "c.yaml.bak").exists()
+
+
+def test_brightness_applied_on_connect_and_on_change():
+    class Dev:
+        def __init__(self):
+            self.sets = []
+
+        @property
+        def brightness(self):
+            return self.sets[-1] if self.sets else None
+
+        @brightness.setter
+        def brightness(self, v):
+            self.sets.append(v)
+
+    d = dash({"brightness": 40})
+    dev = Dev()
+    d._apply_brightness(dev)
+    d._apply_brightness(dev)
+    assert dev.sets == [40]                       # only once per value
+    d.cfg["brightness"] = 70
+    d._apply_brightness(dev)
+    assert dev.sets == [40, 70]
+    d._apply_brightness(None)                     # no device: no crash
+    dash()._apply_brightness(Dev())               # no brightness configured: nothing set
