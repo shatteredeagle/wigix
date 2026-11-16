@@ -159,6 +159,12 @@ class HomeAssistant(Integration):
         r = self._rest.post(f"{self.url}/api/services/{domain}/{service}", json=data or {}, timeout=6)
         r.raise_for_status()
 
+    def camera_image(self, entity_id: str) -> bytes:
+        """Current still (JPEG/PNG bytes) of a ``camera.*`` entity via HA's camera proxy. Raises on any error."""
+        r = self._rest.get(f"{self.url}/api/camera_proxy/{entity_id}", timeout=6)
+        r.raise_for_status()
+        return r.content
+
     def history(self, entity_id: str, hours: float = 24, max_points: int = 120) -> list[float]:
         """Numeric history for a sparkline, cached for 5 minutes."""
         key = (entity_id, hours)
