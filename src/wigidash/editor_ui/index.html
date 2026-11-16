@@ -75,6 +75,8 @@ function inspector(){const box=$('#inspector');box.innerHTML='';if(!sel||!P().wi
   const chg=v=>{if(v===''||v===undefined)delete sel[f.name];else sel[f.name]=v;setDirty();preview()};
   if(f.type==='bool'){inp=el('input',{type:'checkbox',checked:!!cur,onchange:e=>chg(e.target.checked)})}
   else if(f.type==='yaml'){inp=el('textarea',{value:JSON.stringify(cur??f.default??'',null,1),onchange:e=>{try{chg(JSON.parse(e.target.value));msg('')}catch(x){msg('invalid JSON in '+f.name,'err')}}})}
+  else if(f.type==='lines'){inp=el('textarea',{value:(cur||[]).join('\n'),onchange:e=>chg(e.target.value.split('\n').map(x=>x.trim()).filter(Boolean))})}
+  else if(f.type==='entity'){loadEntities();inp=el('input',{type:'text',value:cur??'',placeholder:'start typing an entity…',onchange:e=>chg(e.target.value)});inp.setAttribute('list','entlist')}
   else if(f.type==='color'){inp=el('input',{type:'color',value:cur||f.default||'#ffffff',onchange:e=>chg(e.target.value)})}
   else{const num=f.type==='int'||f.type==='float';inp=el('input',{type:num?'number':'text',value:cur??'',placeholder:f.default??'',step:f.type==='float'?'any':1,
    onchange:e=>chg(num&&e.target.value!==''?Number(e.target.value):e.target.value)})}
@@ -83,6 +85,11 @@ function inspector(){const box=$('#inspector');box.innerHTML='';if(!sel||!P().wi
  const cur=typeof sel.on_tap==='string'?sel.on_tap:sel.on_tap&&sel.on_tap.page?'page:'+sel.on_tap.page:'';
  box.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else sel.on_tap=v;setDirty()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
  box.append(el('div',{style:'margin-top:12px'},el('button',{className:'danger',onclick:()=>{P().widgets.splice(P().widgets.indexOf(sel),1);sel=null;setDirty();render();preview()}},'Remove widget')))}
+let entLoaded=false;
+async function loadEntities(){if(entLoaded)return;entLoaded=true;try{const r=await (await fetch('/api/entities')).json();
+ if(!Array.isArray(r)){msg('entity list: '+(r.error||'unavailable'),'err');entLoaded=false;return}
+ let dl=$('#entlist');if(!dl){dl=el('datalist',{id:'entlist'});document.body.append(dl)}
+ dl.innerHTML='';r.forEach(x=>dl.append(el('option',{value:x.id},x.name+' · '+x.state+(x.unit||''))))}catch(e){entLoaded=false}}
 let pt=null,pseq=0;function preview(wait=0){clearTimeout(pt);pt=setTimeout(async()=>{const my=++pseq;try{const r=await fetch('/api/preview?page='+page+'&wait='+wait,{method:'POST',body:JSON.stringify(cfg)});
  if(my!==pseq)return;if(!r.ok){msg((await r.json()).error,'err');return}$('#img').src=URL.createObjectURL(await r.blob());if(wait)setTimeout(()=>preview(),1500)}catch(e){msg(String(e),'err')}},180)}
 ['cols','rows','gap'].forEach(id=>$('#'+id).onchange=e=>{P().grid=Object.assign(grid(),{[id]:Number(e.target.value)});const g=grid();

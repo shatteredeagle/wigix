@@ -12,6 +12,7 @@ import yaml
 from PIL import Image, ImageDraw
 
 from . import widgets
+from .integrations import Registry
 from .device import H, W, WigiDash, rgb565
 from .render import THEME, Canvas
 
@@ -80,7 +81,8 @@ class Dashboard:
         self.path = path
         self._mtime = os.path.getmtime(os.path.expanduser(str(path))) if path else 0
         self.cfg = cfg
-        self.ctx = dict(cfg)
+        self.integrations = Registry(cfg)
+        self.ctx = dict(cfg, integrations=self.integrations)
         self.pages = self._build_pages(cfg, self.ctx)
         self.page_idx = 0
         self.dev = None
@@ -98,10 +100,13 @@ class Dashboard:
     def reload(self, cfg: dict):
         """Swap in a new config without touching the device. Raises (and keeps the old one) on errors."""
         widgets.load_plugins(cfg.get("plugin_dirs", []))
-        ctx = dict(cfg)
+        integrations = Registry(cfg, reuse=self.integrations)
+        ctx = dict(cfg, integrations=integrations)
         pages = self._build_pages(cfg, ctx)
-        old = self.pages
-        self.cfg, self.ctx, self.pages = cfg, ctx, pages
+        old, old_integrations = self.pages, self.integrations
+        self.cfg, self.ctx, self.pages, self.integrations = cfg, ctx, pages, integrations
+        integrations.start()
+        old_integrations.stop(keep=integrations)
         self.page_idx = min(self.page_idx, len(pages) - 1)
         for page in old:
             for w, _ in page.items:
@@ -132,6 +137,7 @@ class Dashboard:
             self._stop.wait(min(w.interval, 1.0) if getattr(w, "_halt", False) else w.interval)
 
     def start_workers(self):
+        self.integrations.start()
         for page in self.pages:
             for w, _ in page.items:
                 threading.Thread(target=self._worker, args=(w,), daemon=True).start()
@@ -168,9 +174,9 @@ class Dashboard:
             elif isinstance(act, dict) and "page" in act:
                 self.goto(act["page"])
             elif isinstance(act, dict) and "ha_service" in act:
-                from .widgets.ha import _client
                 domain, service = act["ha_service"].split(".", 1)
-                _client(self.ctx).call_service(domain, service, {"entity_id": act["entity"]})
+                self.integrations.get(act.get("integration"), "home_assistant").call_service(
+                    domain, service, {"entity_id": act["entity"]})
         except Exception:
             log.exception("tap action failed")
 

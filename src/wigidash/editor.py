@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 from PIL import Image, ImageDraw
 
 from . import widgets
+from .integrations import Registry
 from .device import H, W
 from .engine import Dashboard, Page, load_config, save_config
 from .render import THEME, Canvas
@@ -37,7 +38,8 @@ class PreviewCache:
 
     def widget(self, cls, wcfg, ctx):
         base = {k: v for k, v in wcfg.items() if k not in ("at", "on_tap")}
-        key = hashlib.sha1(json.dumps([cls.type_name, base], sort_keys=True, default=str).encode()).hexdigest()
+        key = hashlib.sha1(json.dumps([cls.type_name, base, id(ctx.get("integrations"))], sort_keys=True,
+                                      default=str).encode()).hexdigest()
         with self.lock:
             e = self.items.get(key)
             if e is None:
@@ -67,7 +69,26 @@ class Editor:
         self.path = path
         self.dash = dashboard
         self.cache = PreviewCache()
+        self._reg: Registry | None = None
+        self._reg_key = None
         widgets.load_plugins(load_config(path).get("plugin_dirs", []))
+
+    def registry(self, cfg) -> Registry:
+        """Integrations for previews/pickers, rebuilt only when the integrations section changes."""
+        from .integrations import normalize
+        key = json.dumps(normalize(cfg), sort_keys=True, default=str)
+        if key != self._reg_key:
+            old = self._reg
+            self._reg = Registry(cfg, reuse=old)
+            self._reg.start()
+            if old:
+                old.stop(keep=self._reg)
+            self._reg_key = key
+        return self._reg
+
+    def entities(self, cfg, integration=None):
+        ha = self.registry(cfg).get(integration or None, "home_assistant")
+        return ha.entities()
 
     # --- API ------------------------------------------------------------------------------
     def widget_types(self):
@@ -91,7 +112,7 @@ class Editor:
         pages = cfg.get("pages", [])
         if not pages:
             return Image.new("RGB", (W, H), THEME["bg"])
-        ctx = dict(cfg)
+        ctx = dict(cfg, integrations=self.registry(cfg))
         page = Page(pages[min(page_idx, len(pages) - 1)], ctx,
                     factory=lambda cls, wc, x: self.cache.widget(cls, wc, x))
         if wait:
@@ -129,6 +150,12 @@ def make_handler(ed: Editor):
                 self._send(200, load_config(ed.path))
             elif u.path == "/api/widgets":
                 self._send(200, ed.widget_types())
+            elif u.path == "/api/entities":
+                try:
+                    q = parse_qs(u.query)
+                    self._send(200, ed.entities(load_config(ed.path), q.get("integration", [None])[0]))
+                except Exception as e:
+                    self._send(200, {"error": str(e), "entities": []})
             else:
                 self._send(404, {"error": "not found"})
 

@@ -86,3 +86,39 @@ def read_secret(value=None, file=None, env=None):
     if file:
         return open(os.path.expanduser(file)).read().strip()
     return os.environ.get(env or "", "")
+
+
+def parse_color(c, default=None):
+    """'#rrggbb', 'rrggbb', or an (r,g,b) sequence -> (r, g, b). Falls back to default."""
+    try:
+        if isinstance(c, (list, tuple)):
+            return tuple(int(v) for v in c[:3])
+        c = str(c).lstrip("#")
+        return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
+    except (ValueError, TypeError, IndexError):
+        return default
+
+
+def fmt_number(value, precision=None):
+    """Format numeric strings tidily: 21.4999 -> 21.5, 1000.0 -> 1000. Non-numbers pass through."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if precision is not None:
+        return f"{f:.{int(precision)}f}"
+    return f"{f:.1f}".rstrip("0").rstrip(".") if abs(f) < 1000 and f != int(f) else f"{f:.0f}"
+
+
+def rel_time(iso: str) -> str:
+    """'2026-11-16T12:00:00+00:00' -> '3m ago'."""
+    import datetime as dt
+    try:
+        t = dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        s = (dt.datetime.now(dt.timezone.utc) - t).total_seconds()
+    except (ValueError, AttributeError):
+        return ""
+    for unit, n in (("d", 86400), ("h", 3600), ("m", 60)):
+        if s >= n:
+            return f"{int(s // n)}{unit} ago"
+    return "just now"

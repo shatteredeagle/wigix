@@ -4,9 +4,11 @@ fps: 2
 page_seconds: 0            # >0 rotates through pages
 plugin_dirs: ["~/.config/wigidash/widgets"]   # drop your own widget .py files here
 
-# home_assistant:
-#   url: http://homeassistant.local:8123
-#   token_file: ~/.config/wigidash/ha_token   # long-lived access token
+# integrations:                                # shared connections, see docs/home-assistant.md
+#   ha:
+#     type: home_assistant
+#     url: http://homeassistant.local:8123
+#     token_file: ~/.config/wigidash/ha_token   # long-lived access token
 
 pages:
   - name: Overview
@@ -20,3 +22,5 @@ pages:
           {name: "Nothing here", tcp: "127.0.0.1:9"}]}
       - {type: text, text: "hello from yaml", at: [0, 1, 1, 1]}
       # - {type: ha_entity, entity: sensor.outdoor_temperature, at: [0, 2, 1, 1]}
+      # - {type: ha_toggle, entity: light.desk, at: [1, 2, 1, 1]}
+      # - {type: ha_alerts, at: [2, 2, 1, 1]}
