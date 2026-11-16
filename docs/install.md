@@ -15,6 +15,8 @@ You also need the libusb system library: Arch `pacman -S libusb`, Debian/Ubuntu 
 Fedora `dnf install libusb1`. For crisp text install DejaVu fonts (`ttf-dejavu` / `fonts-dejavu-core` /
 `dejavu-sans-mono-fonts`).
 
+**AppImage** (one file, no Python or libusb needed): see [appimage.md](appimage.md).
+
 **Arch Linux** (package with the udev rule and systemd unit included):
 
 ```sh

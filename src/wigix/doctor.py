@@ -17,7 +17,7 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .init import DEFAULT_CONFIG, UDEV_PATH, UDEV_RELOAD, UDEV_RULE
+from .init import DEFAULT_CONFIG, UDEV_PATH, UDEV_RELOAD, UDEV_RULE, appimage_path, udev_instructions
 
 VID, PID_NORMAL, PID_UPDATE = 0x28DA, 0xEF01, 0xEF02
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -68,6 +68,15 @@ def check_libusb() -> Result:
     if backend is None:
         return Result("libusb", FAIL, "no libusb 1.x library found", _LIBUSB_FIX)
     return Result("libusb", PASS, "libusb 1.x backend found")
+
+
+def check_appimage() -> list[Result]:
+    """Info line when running from an AppImage: it cannot install the udev rule, which needs root."""
+    path = appimage_path()
+    if not path:
+        return []
+    return [Result("AppImage", PASS, f"running from {path}; the udev rule cannot be installed from inside it",
+                   "run these once as root (same as `wigix init --udev`):\n" + _indent(udev_instructions()))]
 
 
 _LIBUSB_FIX = "install libusb: Arch `pacman -S libusb`, Debian/Ubuntu `apt install libusb-1.0-0`, Fedora `dnf install libusb1`"
@@ -338,7 +347,7 @@ def _indent(text: str) -> str:
 
 
 def run_checks(config: str | Path = DEFAULT_CONFIG) -> list[Result]:
-    results = [check_python(), check_pyusb(), check_libusb(), check_fonts()]
+    results = [check_python(), check_pyusb(), check_libusb(), check_fonts(), *check_appimage()]
     usb_ok = all(r.status != FAIL for r in results[1:3])
     found = find_devices() if usb_ok else []
     present = check_device_present(found)

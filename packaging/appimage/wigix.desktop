@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=wigix
+GenericName=WigiDash dashboard
+Comment=Driver and dashboard daemon for the G.SKILL WigiDash USB touch panel
+Exec=wigix
+Icon=wigix
+Terminal=true
+NoDisplay=false
+Categories=System;Monitor;

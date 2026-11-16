@@ -45,7 +45,7 @@ wigix autostart enable --boot                 # start at boot/login (daemon + tr
 ```
 
 No panel at hand? `wigix preview -c dashboard.yaml -o preview.png` renders page 1 to a PNG. Full walkthrough, systemd
-autostart and Docker: [docs/install.md](docs/install.md). Something wrong? [docs/troubleshooting.md](docs/troubleshooting.md).
+autostart and Docker: [docs/install.md](docs/install.md). No Python? Use the single-file [AppImage](docs/appimage.md). Something wrong? [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## A small config
 

@@ -1,6 +1,7 @@
 """`wigix init`: starter config, udev rule, systemd user unit and tray autostart entry."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -87,8 +88,18 @@ def udev_instructions() -> str:
             "on a system without it, add your user to a group and use GROUP=\"<group>\" in the rule instead.")
 
 
+def appimage_path() -> str | None:
+    """The .AppImage file this process runs from, or None. (Its mount point vanishes on exit; the file stays.)"""
+    return os.environ.get("APPIMAGE") or None
+
+
 def exec_start() -> str:
-    """ExecStart for the current install: the `wigix` on PATH, else this interpreter running the module."""
+    """ExecStart for the current install: the AppImage file, else the `wigix` on PATH, else this interpreter."""
+    appimage = appimage_path()
+    if appimage:
+        # systemd expands % specifiers and $ variables even inside quotes
+        exe = appimage.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
+        return f'"{exe}" run -c %h/.config/wigix/dashboard.yaml'
     exe = shutil.which("wigix")
     if exe:
         return f'"{exe}" run -c %h/.config/wigix/dashboard.yaml'
@@ -122,8 +133,14 @@ def install_unit(unit_dir: Path = UNIT_DIR, force: bool = False) -> Path:
 
 def tray_desktop_text() -> str:
     """The autostart entry (contrib/wigix-tray.desktop), with Exec pointing at this install."""
-    exe = shutil.which("wigix")
-    cmd = f'"{exe}" tray' if exe else f'"{sys.executable}" -m wigix.cli tray'
+    appimage = appimage_path()
+    if appimage:
+        # desktop entry quoting: backslash-escape \ " ` $ inside quotes; % is a field code, so double it
+        exe = "".join("\\" + c if c in '\\"`$' else c for c in appimage).replace("%", "%%")
+        cmd = f'"{exe}" tray'
+    else:
+        exe = shutil.which("wigix")
+        cmd = f'"{exe}" tray' if exe else f'"{sys.executable}" -m wigix.cli tray'
     return f"""\
 [Desktop Entry]
 Type=Application
