@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Home Assistant over the WebSocket API: one connection, live state cache, auto-reconnect.
 
 Config (under ``integrations:``)::

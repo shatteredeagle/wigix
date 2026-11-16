@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Base class for integrations that poll an API on an interval and expose the latest result as ``.data``."""
 from __future__ import annotations
 

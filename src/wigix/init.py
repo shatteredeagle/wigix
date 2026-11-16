@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """`wigix init`: starter config, udev rule, systemd user unit and tray autostart entry."""
 from __future__ import annotations
 

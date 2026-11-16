@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Integrations: named, shared connections to external systems (Home Assistant, ...).
 
 Configured once under ``integrations:`` in the YAML and referenced by widgets with

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """`wigix doctor`: a checklist that says what is wrong with an install and how to fix it.
 
 Every check is a small function returning a :class:`Result` (or a list of them), so each can be tested

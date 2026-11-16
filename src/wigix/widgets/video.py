@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """The ``video`` widget: play a video file or a stream by piping it through ``ffmpeg`` (no audio).
 
 Config: ``source`` (file path, or a URL ffmpeg understands: rtsp://, http:// MJPEG/HLS, ...), ``fps`` (frames per second

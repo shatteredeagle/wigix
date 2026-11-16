@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Prometheus: named instant queries and range queries, polled together.
 
     integrations:

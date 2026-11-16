@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Media player status and control through ``playerctl`` (any MPRIS player on Linux: Spotify, browsers, mpv, ...).
 
     integrations:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """UniFi Network on a UniFi OS console (UDM, UDR, Cloud Key Gen2+, ...), read-only.
 
     integrations:

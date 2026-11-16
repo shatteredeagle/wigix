@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Inside an AppImage the units must point at the .AppImage file, never at the vanishing mount point."""
 from pathlib import Path
 

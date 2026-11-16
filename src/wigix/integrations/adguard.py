@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """AdGuard Home (HTTP basic auth).
 
     integrations:

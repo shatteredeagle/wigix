@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-only
 """Render the README / docs screenshots from generic fake data. No real services, no network.
 
     .venv/bin/python tools/make_screenshots.py            # dashboards + editor

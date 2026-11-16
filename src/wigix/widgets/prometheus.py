@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Prometheus widgets (``prom_value``, ``prom_graph``) and Alertmanager's ``alertmanager_alerts``.
 
 ``query`` / ``range`` are the *names* of entries under ``queries:`` / ``ranges:`` in the integration config,

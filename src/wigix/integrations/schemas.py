@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Editor metadata for the built-in integrations: the options each ``type:`` accepts.
 
 The field format is the one widgets use (``{name, type, default, help}``; types string, int, float, bool,

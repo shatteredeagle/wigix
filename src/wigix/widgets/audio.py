@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Audio visualizer: a spectrum of whatever the computer is playing (PipeWire / PulseAudio).
 
 Captures the default output's monitor with ``parec`` (or ``pw-record``) as raw mono s16le, and turns it into

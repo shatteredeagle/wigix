@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Drawing helpers shared by widgets: theme, fonts, cards, bars, sparklines."""
 from __future__ import annotations
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """``uptime_kuma``: monitor status board from an ``uptime_kuma`` integration (public status page)."""
 from __future__ import annotations
 

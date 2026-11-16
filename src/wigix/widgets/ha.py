@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Home Assistant widgets. They read the shared live state of a ``home_assistant`` integration
 (see integrations/home_assistant.py), so there is no per-widget polling.
 

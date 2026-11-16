@@ -130,7 +130,7 @@ New widgets appear in the gallery automatically when you re-run `tools/gallery.p
 
 ## License and disclaimer
 
-Licensed under the [GNU GPL v3](LICENSE).
+Licensed under the [GNU GPL v3](LICENSE) (`GPL-3.0-only`).
 
 wigix is an independent project and is **not affiliated with, endorsed by or sponsored by G.SKILL**. "G.SKILL" and
 "WigiDash" are trademarks of their owners. The USB protocol was worked out from USB captures of a device the author owns,

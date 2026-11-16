@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """The ``image`` widget: a static picture or animated GIF from a file or an http(s) URL.
 
 Config: ``source`` (path or URL), ``fit`` (cover | contain | stretch), ``refresh`` (seconds between re-downloads of

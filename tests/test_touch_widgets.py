@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Touch-first widgets: macro_pad, draw_pad, snake and game_2048 (pure rules + widget behaviour)."""
 import random
 

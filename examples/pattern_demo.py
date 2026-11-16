@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 import subprocess, time
 from PIL import Image, ImageDraw
 import struct

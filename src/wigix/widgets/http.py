@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Generic JSON-over-HTTP widgets (``json_value``, ``json_list``) for the ``http`` integration.
 
 Common config: ``integration`` (name; optional when there is exactly one ``http`` integration),

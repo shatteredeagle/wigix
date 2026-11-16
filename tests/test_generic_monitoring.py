@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """http / prometheus / alertmanager / docker / uptime_kuma integrations and their widgets, against fake servers."""
 import pytest
 

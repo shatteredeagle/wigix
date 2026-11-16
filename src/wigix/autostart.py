@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """One-command launch at login (and optionally at boot): `wigix autostart enable|disable|status`.
 
 Installs the systemd user unit for the daemon (and enables it right away), adds the tray's autostart entry when

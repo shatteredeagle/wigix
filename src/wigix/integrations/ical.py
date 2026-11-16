@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Calendar from an iCalendar (.ics) feed: a private Google/Nextcloud/Fastmail URL or a local file.
 
     integrations:

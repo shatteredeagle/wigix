@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Docker Engine API, read-only: the container list.
 
     integrations:

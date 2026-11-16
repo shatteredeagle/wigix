@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """`wigix tray`: a system tray icon for the running daemon (PyQt6, optional).
 
 The first half of this module is Qt-free: ``ControlClient`` talks to the daemon's editor API, and

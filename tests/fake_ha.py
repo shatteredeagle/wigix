@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """A tiny fake Home Assistant: websocket auth + get_states + state_changed events, REST services/history."""
 import asyncio
 import json

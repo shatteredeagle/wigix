@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Unraid (7+) via its GraphQL API.
 
     integrations:

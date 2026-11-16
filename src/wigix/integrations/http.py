@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Generic JSON over HTTP: poll a few URLs and let widgets pick values out of the responses.
 
     integrations:

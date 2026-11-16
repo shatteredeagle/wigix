@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 from . import IntegrationWidget, widget
 from ..render import THEME, font
 

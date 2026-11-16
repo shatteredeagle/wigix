@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Swipe games for the touch panel: ``snake`` and ``game_2048``.
 
 The rules live in plain classes (``SnakeGame``, ``Game2048``) with no drawing and a seedable RNG so they can be

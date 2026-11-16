@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """The ``camera`` widget: a security or pet camera, from one of four sources (configure exactly one):
 
 - ``snapshot_url``: a JPEG polled every ``refresh`` seconds (optional ``headers``, or a bearer ``token`` / ``token_file``)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Editor access control, protected settings, limits, and the safety of what the engine writes and runs."""
 import json
 import os

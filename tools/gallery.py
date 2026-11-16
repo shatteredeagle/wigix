@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-only
 """Render every registered widget with sample data and write docs/gallery.md + docs/img/gallery/<type>.png.
 
     .venv/bin/python tools/gallery.py

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Pi-hole, v6 (REST API with sessions) and legacy v5 (``api.php`` with an API token).
 
     integrations:

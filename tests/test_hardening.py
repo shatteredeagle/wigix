@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Security hardening: secret scrubbing, header scoping, TLS defaults, auth backoff, download limits, ffmpeg input, doctor."""
 import io
 import os

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Tests for the image, video and camera widgets (and Home Assistant's camera_image)."""
 import io
 import os

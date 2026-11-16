@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """WigiDash (28da:ef01) driver, reverse-engineered from USB captures (see docs/protocol.md).
 
 Display: 1016x592 RGB565 little-endian, one bulk OUT on EP1 per frame.

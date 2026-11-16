@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Fake HTTP services for integration tests (TCP and unix socket). Stdlib only.
 
     srv = FakeHTTP({("GET", "/api/x"): {"a": 1}})          # JSON by default

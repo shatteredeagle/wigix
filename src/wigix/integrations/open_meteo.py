@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Weather from Open-Meteo (free, no API key).
 
     integrations:

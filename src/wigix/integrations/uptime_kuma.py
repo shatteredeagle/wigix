@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Uptime Kuma via a public status page (no login or API key needed).
 
     integrations:

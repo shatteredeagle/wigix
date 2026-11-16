@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Widget plugin API.
 
 A widget is a class registered with ``@widget("name")``. The engine calls ``update()`` on a worker

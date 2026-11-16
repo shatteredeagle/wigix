@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Bambu Lab 3D printer over its local LAN MQTT broker (P1S, P1P, X1, A1 ... in LAN mode).
 
 Config (under ``integrations:``)::

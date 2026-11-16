@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """AppImage launcher: run the `wigix` CLI with the bundled libusb.
 
 pyusb looks libusb up through ctypes.util.find_library, which only sees libraries the host registered with ldconfig.

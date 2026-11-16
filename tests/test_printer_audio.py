@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Bambu printer (merged MQTT reports) and audio visualizer (fake capture process). No broker, sound card or hosts."""
 import json
 import threading

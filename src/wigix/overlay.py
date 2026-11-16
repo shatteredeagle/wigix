@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Things layered over the pages: the startup splash, the idle screensaver (with dimming) and popups
 (shown for N seconds, usually fired by a Home Assistant trigger such as a doorbell).
 

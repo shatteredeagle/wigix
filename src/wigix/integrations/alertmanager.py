@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Prometheus Alertmanager: the currently firing alerts (silenced and inhibited ones are left out).
 
     integrations:

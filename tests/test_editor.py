@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Editor: API behaviour (stdlib http against a real server) and one browser test driven by Playwright."""
 import json
 import pathlib

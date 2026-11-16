@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Pi-hole, AdGuard, UniFi, Open-Meteo, iCal and MPRIS integrations with their widgets (fake HTTP / monkeypatching only)."""
 import base64
 import datetime as dt

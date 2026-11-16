@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """The tray's Qt-free model, its control client against a real editor + Dashboard, icons and a Qt smoke test."""
 import os
 import threading

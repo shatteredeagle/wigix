@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Local web editor: drag widgets around a live preview, edit their settings, save to the YAML.
 
 Serves a small single-page app plus a JSON API on 127.0.0.1. The running daemon hot-reloads the

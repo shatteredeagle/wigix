@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """A touch sketch pad: draw with a finger, pick colors and brush sizes, save the result as a PNG."""
 from __future__ import annotations
 

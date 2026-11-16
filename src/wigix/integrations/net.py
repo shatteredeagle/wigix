@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Network helpers shared by integrations and widgets: error scrubbing, TLS settings and bounded downloads.
 
 Nothing here talks to a specific service. ``scrub`` and ``describe_error`` keep secrets that travel in URLs

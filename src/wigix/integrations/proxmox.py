@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Proxmox VE via the API (read-only calls; a PVEAuditor token is enough).
 
     integrations:
