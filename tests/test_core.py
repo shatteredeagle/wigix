@@ -114,13 +114,17 @@ def editor(tmp_path):
     ed = Editor(str(cfg))
     srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(ed))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
+    TOKEN[0] = ed.token
     yield f"http://127.0.0.1:{srv.server_port}", cfg
     srv.shutdown()
 
 
+TOKEN = [""]
+
+
 def call(url, method="GET", body=None, headers=None):
     req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, method=method,
-                                 headers=headers or {})
+                                 headers={"Cookie": f"wigix_token={TOKEN[0]}", **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return r.status, r.read()
@@ -187,7 +191,7 @@ def test_key_action_needs_security_flag_and_picks_a_tool(monkeypatch):
     dash().run_action({"key": "ctrl+alt+t"})
     assert calls == []                                       # off by default
     dash({"security": {"allow_commands": True}}).run_action({"key": "ctrl+alt+t"})
-    assert calls == [["xdotool", "key", "ctrl+alt+t"]]
+    assert calls == [["xdotool", "key", "--", "ctrl+alt+t"]]
     monkeypatch.setattr(eng.shutil, "which", lambda n: "/usr/bin/" + n if n == "wtype" else None)
     dash({"security": {"allow_commands": True}}).run_action({"key": "ctrl+m"})
     assert calls[-1] == ["wtype", "-M", "ctrl", "-k", "m", "-m", "ctrl"]

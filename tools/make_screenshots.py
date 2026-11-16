@@ -456,7 +456,7 @@ def editor_config(d: Demo):
 # ------------------------------------------------------------------------------------------------ editor
 def editor_shots(d: Demo):
     from playwright.sync_api import sync_playwright
-    from wigix.editor import serve
+    from wigix.editor import load_token, serve
     from wigix.render import set_theme
     set_theme(None)                 # the dashboards above may have set a custom theme globally
 
@@ -468,9 +468,9 @@ def editor_shots(d: Demo):
         with sync_playwright() as p:
             b = p.chromium.launch(executable_path="/usr/bin/google-chrome-stable", args=["--no-sandbox"])
             for scheme in ("dark", "light"):
-                ctx = b.new_context(viewport={"width": 1500, "height": 900}, color_scheme=scheme)
+                ctx = b.new_context(viewport={"width": 1500, "height": 900}, color_scheme=scheme, bypass_csp=True)   # bypass: wait_for_function evals a string
                 page = ctx.new_page()
-                page.goto(f"http://127.0.0.1:{port}/")
+                page.goto(f"http://127.0.0.1:{port}/?token={load_token(cfgfile)}")
                 page.wait_for_timeout(1500)
                 try:
                     page.wait_for_function("""() => { const im = document.querySelector('img'); const c = document.querySelector('canvas');

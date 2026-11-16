@@ -53,6 +53,8 @@ def main():
     it.add_argument("--systemd", action="store_true", help="install the systemd user unit")
     it.add_argument("--enable", action="store_true", help="with --systemd: also enable and start it")
     sub.add_parser("devices", help="list matching USB devices")
+    ur = sub.add_parser("url", help="print the web editor's access link (contains a secret token)")
+    ur.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
@@ -65,9 +67,14 @@ def main():
         sys.exit(init(a.out, a.force, a.udev, a.systemd, a.enable))
     if a.cmd == "devices":
         sys.exit(_devices())
+    if a.cmd == "url":
+        from .editor import editor_url
+        ecfg = load_config(a.config).get("editor") or {}
+        print(editor_url(a.config, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765))))
+        return
     if a.cmd == "editor":
         from .editor import serve
-        serve(a.config, a.host, a.port)
+        serve(a.config, a.host, a.port, announce=True)
         return
     try:
         dash = Dashboard(load_config(a.config), a.config)

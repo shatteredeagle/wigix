@@ -7,6 +7,20 @@ config. It works on the same YAML file the daemon reads, and the daemon hot-relo
 editor: {port: 8765}          # in the config: the daemon serves the editor at http://127.0.0.1:8765
 ```
 
+## Opening it: the access link
+
+The editor is protected by a secret token. Run `wigix url` (add `-c path/to/config.yaml` if yours is not the default) and
+open the link it prints, e.g. `http://127.0.0.1:8765/?token=...`. The first visit stores the token in an HttpOnly,
+SameSite=Strict cookie and redirects to a clean URL, so you only need the link once per browser. The token lives in
+`editor_token` next to your config (mode 0600); delete the file and restart to rotate it. A bare `http://127.0.0.1:8765/`
+without it shows a short help page.
+
+Other protections: only `localhost`/`127.0.0.1`/`[::1]` Host headers are accepted (DNS rebinding), writes need an
+`X-Requested-With` header, requests are limited to 1 MB and time out after 10 s, and responses carry a strict
+Content-Security-Policy and `frame-ancestors 'none'`. The settings that let the daemon run code (`plugin_dirs`,
+`security`, `editor`) cannot be changed through the editor: edit the file by hand. Config files you save keep their
+permission bits (new ones are 0600), and so does the `.bak` backup.
+
 `wigix editor` (or the `editor:` block above) starts it; run inside the daemon it also shows live integration
 status. There are no dependencies beyond the standard library, Pillow and PyYAML, and the page needs no network.
 

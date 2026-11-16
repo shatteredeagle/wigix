@@ -1,15 +1,26 @@
 """Local web editor: drag widgets around a live preview, edit their settings, save to the YAML.
 
 Serves a small single-page app plus a JSON API on 127.0.0.1. The running daemon hot-reloads the
-config file, so Save updates the panel. No auth: keep it bound to localhost unless you know why not.
+config file, so Save updates the panel.
+
+Access control: every request needs the editor's secret token (kept in a 0600 file next to the config; `wigix url`
+prints the link). The first visit to /?token=... stores it in an HttpOnly SameSite=Strict cookie. On top of that: a
+Host-header allow-list (DNS rebinding), a custom header on writes (cross-site requests), and the config keys that
+grant code execution (`plugin_dirs`, `security`, `editor`) cannot be changed through the API at all.
+Editor access is still equivalent to control over what this daemon connects to: keep it on localhost.
 """
 from __future__ import annotations
 
 import hashlib
+import hmac
 import io
 import json
 import logging
+import math
+import os
 import pathlib
+import re
+import secrets
 import sys
 import threading
 import time
@@ -48,10 +59,37 @@ def build_registry(cfg, reuse=None) -> Registry:
                          "fill it in on the Integrations panel") from None
 
 
+PROTECTED_KEYS = ("plugin_dirs", "security", "editor")   # code-execution settings: hand-edit the file only
+MAX_BODY = 1_000_000
+
+
+def token_path(config_path) -> pathlib.Path:
+    return pathlib.Path(os.path.expanduser(str(config_path))).with_name("editor_token")
+
+
+def load_token(config_path, create=True) -> str | None:
+    """The editor's secret token, from <config dir>/editor_token (created 0600 on first use)."""
+    p = token_path(config_path)
+    try:
+        t = p.read_text().strip()
+        if t:
+            return t
+    except FileNotFoundError:
+        pass
+    if not create:
+        return None
+    t = secrets.token_urlsafe(24)
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(t + "\n")
+    return t
+
+
 class PreviewCache:
     """Keeps widget instances (and their data) alive across edits so moving a widget is instant."""
 
     TTL = 300
+    MAX_ITEMS = 64          # each entry runs a worker thread
 
     def __init__(self):
         self.items: dict[str, dict] = {}
@@ -72,6 +110,10 @@ class PreviewCache:
                 if time.time() - v["t"] > self.TTL:
                     v["w"]._halt = True
                     del self.items[k]
+            while len(self.items) > self.MAX_ITEMS:                   # evict the least recently used
+                oldest = min(self.items, key=lambda k: self.items[k]["t"])
+                self.items[oldest]["w"]._halt = True
+                del self.items[oldest]
             return e["w"]
 
     @staticmethod
@@ -86,8 +128,9 @@ class PreviewCache:
 
 
 class Editor:
-    def __init__(self, path, dashboard: Dashboard | None = None):
+    def __init__(self, path, dashboard: Dashboard | None = None, token: str | None = None):
         self.path = path
+        self.token = token if token is not None else load_token(path)
         self.dash = dashboard
         self.cache = PreviewCache()
         self._reg: Registry | None = None
@@ -207,6 +250,17 @@ class Editor:
     def validate(self, cfg):
         self.check(cfg)
 
+    def check_protected(self, cfg):
+        """The keys that grant code execution may not be changed through the editor."""
+        try:
+            on_disk = load_config(self.path)
+        except FileNotFoundError:
+            on_disk = {}
+        for k in PROTECTED_KEYS:
+            if cfg.get(k) != on_disk.get(k):
+                raise ValueError(f"`{k}` can only be changed by editing the config file by hand "
+                                 "(it can make the daemon run code)")
+
     def validate_yaml(self, text):
         """Parse raw YAML and check it. Returns {ok, error, line, warnings, config}; never echoes file content."""
         try:
@@ -227,6 +281,7 @@ class Editor:
 
     def save(self, cfg):
         warnings = self.check(cfg)
+        self.check_protected(cfg)
         save_config(self.path, cfg)
         return warnings
 
@@ -244,21 +299,52 @@ class Editor:
 
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+HOST_RE = re.compile(r"^(\[[0-9a-fA-F:.]+\]|[A-Za-z0-9.-]+)(:\d{1,5})?$")
+SECURITY_HEADERS = {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                               "img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
+NEEDS_TOKEN = """<!doctype html><meta charset=utf-8><title>wigix editor</title>
+<body style="font:16px system-ui;max-width:34em;margin:4em auto;padding:0 1em">
+<h1>wigix editor</h1><p>This editor needs its access link. Run <code>wigix url</code> on the machine running wigix and open
+the link it prints (it contains a secret token, so treat it like a password).</p></body>"""
 
 
 def make_handler(ed: Editor, extra_hosts=()):
-    allowed = ALLOWED_HOSTS | set(extra_hosts)
+    allowed = {h.lower() for h in ALLOWED_HOSTS | set(extra_hosts)}
 
     class H_(BaseHTTPRequestHandler):
+        timeout = 10            # drop slow or stalled clients
+
         def log_message(self, *a):
             pass
 
+        def _host_ok(self) -> bool:
+            m = HOST_RE.match(self.headers.get("Host") or "")
+            return bool(m) and m.group(1).lower() in allowed
+
+        def _cookie_token(self):
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                k, _, v = part.strip().partition("=")
+                if k == "wigix_token":
+                    return v
+            return None
+
+        def _authed(self) -> bool:
+            sent = self._cookie_token() or self.headers.get("X-Wigix-Token") or ""
+            return bool(ed.token) and hmac.compare_digest(sent.encode(), ed.token.encode())
+
         def _guard(self, write: bool) -> bool:
-            """Defend the local API against DNS rebinding (Host check) and cross-site writes (custom header)."""
-            host = (self.headers.get("Host") or "").rsplit(":", 1)[0] if not (self.headers.get("Host") or "").startswith("[") \
-                else (self.headers.get("Host") or "").split("]")[0] + "]"
-            if host not in allowed:
+            """Host allow-list (DNS rebinding), secret token (anything else on this machine/LAN) and, for writes,
+            a custom header (cross-site requests)."""
+            if not self._host_ok():
                 self._send(403, {"error": "forbidden host"})
+                return False
+            if not self._authed():
+                self._send(401, {"error": "missing or wrong editor token: open the link printed by `wigix url`"})
                 return False
             if write and self.headers.get("X-Requested-With") != "wigix":
                 self._send(403, {"error": "missing X-Requested-With header"})
@@ -274,20 +360,46 @@ def make_handler(ed: Editor, extra_hosts=()):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            for k, v in SECURITY_HEADERS.items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
         def _json(self):
-            return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                raise ValueError("bad Content-Length")
+            if n < 0 or n > MAX_BODY:
+                raise ValueError(f"request body must be 0..{MAX_BODY} bytes")
+            return json.loads(self.rfile.read(n) or b"{}")
+
+        def _login(self, u) -> bool:
+            """GET /?token=...: set the cookie and redirect to a clean URL. True if the request was handled."""
+            sent = (parse_qs(u.query).get("token") or [""])[0]
+            if not (ed.token and sent and hmac.compare_digest(sent.encode(), ed.token.encode())):
+                return False
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header("Set-Cookie", f"wigix_token={ed.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000")
+            for k, v in SECURITY_HEADERS.items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return True
 
         def do_GET(self):
+            u = urlparse(self.path)
+            if u.path == "/" and self._host_ok() and self._login(u):
+                return
+            if u.path == "/" and self._host_ok() and not self._authed():
+                return self._send(401, NEEDS_TOKEN, "text/html; charset=utf-8")
+            if u.path == "/favicon.ico":
+                return self._send(204, b"", "image/x-icon")
             if not self._guard(False):
                 return
-            u = urlparse(self.path)
             if u.path == "/":
                 self._send(200, (UI / "index.html").read_bytes(), "text/html; charset=utf-8")
-            elif u.path == "/favicon.ico":
-                self._send(204, b"", "image/x-icon")
             elif u.path == "/api/config":
                 self._send(200, load_config(ed.path))
             elif u.path == "/api/widgets":
@@ -344,7 +456,9 @@ def make_handler(ed: Editor, extra_hosts=()):
                 q = parse_qs(u.query)
                 cfg = self._json()
                 buf = io.BytesIO()
-                img = ed.render(cfg, int(q.get("page", ["0"])[0]), wait=float(q.get("wait", ["0"])[0]))
+                wait = float(q.get("wait", ["0"])[0])
+                wait = min(max(wait, 0.0), 5.0) if math.isfinite(wait) else 0.0
+                img = ed.render(cfg, int(q.get("page", ["0"])[0]), wait=wait)
                 img.save(buf, "PNG")
                 self._send(200, buf.getvalue(), "image/png")
             except Exception as e:
@@ -353,10 +467,18 @@ def make_handler(ed: Editor, extra_hosts=()):
     return H_
 
 
-def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True, allowed_hosts=()):
+def editor_url(path, host="127.0.0.1", port=8765) -> str:
+    """The link that opens the editor (contains the secret token: do not share or log it)."""
+    host = "localhost" if host in ("0.0.0.0", "::") else host
+    return f"http://{host}:{port}/?token={load_token(path)}"
+
+
+def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True, allowed_hosts=(), announce=False):
     ed = Editor(path, dashboard)
     srv = ThreadingHTTPServer((host, port), make_handler(ed, allowed_hosts))
-    log.info("editor at http://%s:%d", host, port)
+    log.info("editor listening on %s:%d (run `wigix url` for the access link)", host, port)
+    if announce:                                 # interactive `wigix editor`: print the link on the terminal
+        print("Open:", editor_url(path, host, port), flush=True)
     if block:
         try:
             srv.serve_forever()

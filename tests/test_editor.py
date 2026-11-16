@@ -18,6 +18,7 @@ from wigix.render import _BASE_THEME, set_theme
 widgets.load_plugins()
 load_builtin()
 XRW = {"X-Requested-With": "wigix"}
+TOKEN = [""]      # the token of the editor most recently started by serve()
 BASE = "pages:\n- name: P\n  widgets:\n  - {type: text, text: hi}\n"
 
 
@@ -27,6 +28,7 @@ def serve(tmp_path, text=BASE, dashboard=False):
     ed = Editor(str(cfg), Dashboard(load_config(cfg), str(cfg)) if dashboard else None)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(ed))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
+    TOKEN[0] = ed.token
     return f"http://127.0.0.1:{srv.server_port}", cfg, srv
 
 
@@ -39,7 +41,7 @@ def editor(tmp_path):
 
 def call(url, method="GET", body=None, headers=None):
     req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, method=method,
-                                 headers=headers or {})
+                                 headers={"Cookie": f"wigix_token={TOKEN[0]}", **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return r.status, r.read()
@@ -152,8 +154,9 @@ def test_integration_and_setting_validation(editor):
     for extra in bad:
         code, r = post(url, "/api/config", {"pages": pages, **extra}, "PUT")
         assert code == 400 and r["error"], extra
-    assert post(url, "/api/config", {"pages": pages, "fps": 10, "theme": {"accent": "#abcdef"},
-                                     "security": {"allow_commands": True}}, "PUT")[0] == 200
+    assert post(url, "/api/config", {"pages": pages, "fps": 10, "theme": {"accent": "#abcdef"}}, "PUT")[0] == 200
+    code, r = post(url, "/api/config", {"pages": pages, "security": {"allow_commands": True}}, "PUT")
+    assert code == 400 and "by hand" in r["error"]            # code-execution settings are not editable here
 
 
 def test_secrets_are_files_never_inline_or_echoed(editor):
@@ -215,10 +218,12 @@ def test_editor_in_a_browser(tmp_path):
                 browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
             except Exception as e:      # a Chrome that cannot start here is an environment problem, not a failure
                 pytest.skip(f"cannot launch Chrome: {e}")
-            pg = browser.new_page(viewport={"width": 1500, "height": 900})
+            # bypass_csp only because Playwright's wait_for_function evals strings; the CSP itself is exercised
+            # by test_editor_loads_under_its_content_security_policy below
+            pg = browser.new_context(bypass_csp=True, viewport={"width": 1500, "height": 900}).new_page()
             errors = []
             pg.on("pageerror", lambda e: errors.append(str(e)))
-            pg.goto(url)
+            pg.goto(f"{url}/?token={TOKEN[0]}")
             pg.wait_for_selector("#palette button")
 
             pg.click("#palette button:has-text('text') >> nth=-1")                      # add a widget
@@ -261,5 +266,35 @@ def test_editor_in_a_browser(tmp_path):
         saved = cfg.read_text()
         assert "name: Edited" in saved and "from yaml" in saved
         assert not errors, errors
+    finally:
+        srv.shutdown()
+
+
+def test_editor_loads_under_its_content_security_policy(tmp_path):
+    """The strict CSP must not break the page: no violations, widgets palette and preview image load."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    if not pathlib.Path(CHROME).exists():
+        pytest.skip("google-chrome-stable not installed")
+    url, cfg, srv = serve(tmp_path, "pages:\n- name: P\n  grid: {cols: 4, rows: 3, gap: 10}\n  widgets:\n  - {type: text, text: hi}\n")
+    try:
+        with sync_api.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+            except Exception as e:
+                pytest.skip(f"cannot launch Chrome: {e}")
+            pg = browser.new_page()
+            problems = []
+            pg.on("pageerror", lambda e: problems.append(str(e)))
+            pg.on("console", lambda m: problems.append(m.text) if m.type == "error" else None)
+            pg.goto(f"{url}/?token={TOKEN[0]}")
+            pg.wait_for_selector("#palette button")
+            pg.wait_for_selector(".wb")
+            for _ in range(40):                                         # the first preview waits ~1.5 s for live data
+                if pg.evaluate("document.querySelector('#img').naturalWidth") > 0:
+                    break
+                pg.wait_for_timeout(250)
+            assert pg.evaluate("document.querySelector('#img').naturalWidth") > 0     # the blob: image loaded under the CSP
+            assert problems == []
+            browser.close()
     finally:
         srv.shutdown()

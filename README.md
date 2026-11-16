@@ -40,7 +40,7 @@ pipx install git+https://github.com/shatteredeagle/wigix   # Arch package, sourc
 wigix init --udev     # prints the udev rule and commands so your user can open the panel
 wigix init            # starter config in ~/.config/wigix/dashboard.yaml
 wigix doctor          # checks everything and tells you how to fix problems
-wigix run -c ~/.config/wigix/dashboard.yaml   # editor at http://localhost:8765
+wigix run -c ~/.config/wigix/dashboard.yaml   # then `wigix url` prints the editor link
 ```
 
 No panel at hand? `wigix preview -c dashboard.yaml -o preview.png` renders page 1 to a PNG. Full walkthrough, systemd
@@ -101,10 +101,18 @@ screen until you **unplug and replug** the USB cable. A fresh plug-in works. Det
 
 ## Security notes
 
-- The web editor binds to localhost, checks the `Host` header and requires a custom header on writes. Don't expose
-  it to a network you don't trust: it can edit the config, and the config can start commands.
-- `command:` and key-press actions are ignored unless the config sets `security: {allow_commands: true}`.
-- Keep API tokens in files with mode 0600 (`token_file:`), not in the YAML.
+- **The web editor needs its access link.** `wigix url` prints it (it contains a secret token, stored 0600 in
+  `~/.config/wigix/editor_token`). Opening the link once sets an HttpOnly, SameSite=Strict cookie. On top of that the editor
+  checks the `Host` header (DNS rebinding), requires a custom header on writes and sends a strict Content-Security-Policy.
+- **Editor access is powerful**: whoever has the link can change which services the daemon talks to and which files it
+  reads. Keep it on localhost (the default); to use it remotely, tunnel it over SSH rather than binding it to a LAN.
+- **Code-execution settings are hand-edit only.** `plugin_dirs`, `security` and `editor` cannot be changed through the
+  editor's API, and `command:`, key-press and `type:` actions are ignored unless you set `security: {allow_commands: true}`
+  in the file yourself. `url:` actions only open http(s) links.
+- Keep API tokens in files with mode 0600 (`token_file:`), not inline in the YAML. TLS certificates are verified by default
+  (`verify: false` or a CA path for self-signed Proxmox/Unraid/UniFi; Bambu printers always use an unverified connection).
+- See [docs/editor.md](docs/editor.md) for details, and please report vulnerabilities privately (see
+  [SECURITY.md](SECURITY.md)).
 
 ## Contributing
 

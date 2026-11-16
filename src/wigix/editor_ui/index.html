@@ -255,8 +255,8 @@ function settingsPanel(){const box=$('#p-settings');box.innerHTML='';
   el('input',{id:'fps',type:'number',min:1,max:17,step:'any',value:cfg.fps??'',placeholder:'2',onchange:e=>{if(e.target.value==='')delete cfg.fps;else cfg.fps=Number(e.target.value);commit()}}),
   el('div',{className:'help'},'How often the panel redraws (default 2, at most 17: the USB link is the limit). Animated widgets raise it while visible.'));
  const sec=cfg.security||{};box.append(el('h2',{style:'margin-top:18px'},'Security'),
-  el('label',{style:'display:flex;gap:8px;align-items:center;color:var(--text)'},el('input',{id:'allowcmd',type:'checkbox',checked:!!sec.allow_commands,onchange:e=>{if(e.target.checked){cfg.security=Object.assign(cfg.security||{},{allow_commands:true})}else{delete cfg.security.allow_commands;if(!Object.keys(cfg.security).length)delete cfg.security}commit();settingsPanel()}}),'Allow commands and key presses'));
- box.append(warnBox('Turning this on lets tap actions run any shell command and press keys as your user. Anyone who can edit this config or reach this editor can then run code on this machine. Keep it off unless you need it.','crit'));
+  el('label',{style:'display:flex;gap:8px;align-items:center;color:var(--text)'},el('input',{id:'allowcmd',type:'checkbox',checked:!!sec.allow_commands,disabled:true}),'Commands and key presses '+(sec.allow_commands?'allowed':'blocked')));
+ box.append(warnBox('Command, key and plugin settings (security.allow_commands, plugin_dirs, editor) can only be changed by editing the config file by hand: they let the daemon run code, so this editor cannot touch them. Anyone with access to this editor can still change which services and files the daemon connects to, so keep it on localhost.','crit'));
  box.append(el('h2',{style:'margin-top:18px'},'Editor and host (read-only)'),
   el('div',{className:'help'},'These are set in the YAML file only, because changing them from the editor could lock you out.'));
  const ed=meta.editor||{},rows=[['config file',meta.path],['editor host',ed.host??'127.0.0.1'],['editor port',ed.port??8765],['allowed hosts',(ed.allowed_hosts||[]).join(', ')||'(localhost only)']];

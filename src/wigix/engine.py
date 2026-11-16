@@ -6,6 +6,7 @@ import logging
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -28,13 +29,26 @@ def load_config(path):
 
 
 def save_config(path, cfg):
-    """Write the config as YAML, keeping the previous version as <path>.bak."""
+    """Write the config as YAML atomically, keeping the previous version as <path>.bak.
+
+    The file keeps its existing permission bits (a new file is created 0600: configs can hold secrets), and the
+    backup gets the same bits, so saving from the editor never widens access.
+    """
     path = os.path.expanduser(str(path))
+    mode = stat.S_IMODE(os.stat(path).st_mode) if os.path.exists(path) else 0o600
     if os.path.exists(path):
-        shutil.copyfile(path, path + ".bak")
+        bak = path + ".bak"
+        fd = os.open(bak, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+        with os.fdopen(fd, "wb") as out, open(path, "rb") as src:
+            shutil.copyfileobj(src, out)
+        os.chmod(bak, mode)
     tmp = path + ".tmp"
-    with open(tmp, "w") as f:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    with os.fdopen(fd, "w") as f:
         yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=None, width=100)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, mode)
     os.replace(tmp, path)
 
 
@@ -209,6 +223,9 @@ class Dashboard:
                 return
             self._send_keys(act)
         elif "url" in act:
+            if not str(act["url"]).lower().startswith(("http://", "https://")):
+                log.warning("url action ignored (only http/https URLs are opened): %r", act["url"])
+                return
             subprocess.Popen(["xdg-open", act["url"]], start_new_session=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         elif "ha_service" in act:
@@ -225,17 +242,21 @@ class Dashboard:
         """Press a key combo ({key: "ctrl+shift+m"}) or type text ({type: "hello"}) with whichever tool exists:
         wtype/ydotool (Wayland) or xdotool (X11 / XWayland windows only)."""
         key, text = act.get("key"), act.get("type")
+        if any(str(v).startswith("-") or any(p.startswith("-") for p in str(v).split("+"))
+               for v in (key, text) if v):
+            log.warning("key/type action ignored: values may not start with '-'")
+            return
         if shutil.which("wtype"):
             if key:
                 parts = key.lower().split("+")
                 mods = [m for m in parts[:-1]]
                 cmd = ["wtype"] + [a for m in mods for a in ("-M", m)] + ["-k", parts[-1]] + [a for m in reversed(mods) for a in ("-m", m)]
             else:
-                cmd = ["wtype", text]
+                cmd = ["wtype", "--", text]
         elif shutil.which("ydotool"):
-            cmd = ["ydotool", "type", text] if text else ["ydotool", "key", key]   # ydotool wants key codes: see its docs
+            cmd = ["ydotool", "type", "--", text] if text else ["ydotool", "key", key]   # ydotool wants key codes: see its docs
         elif shutil.which("xdotool"):
-            cmd = ["xdotool", "key", key] if key else ["xdotool", "type", text]
+            cmd = ["xdotool", "key", "--", key] if key else ["xdotool", "type", "--", text]
         else:
             log.warning("no key-sending tool found (install wtype, ydotool or xdotool)")
             return
