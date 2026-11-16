@@ -1,0 +1,22 @@
+# Example dashboard. Run:  wigidash preview -c examples/dashboard.yaml   (writes preview.png)
+#                          wigidash run -c examples/dashboard.yaml       (drives the panel)
+fps: 2
+page_seconds: 0            # >0 rotates through pages
+plugin_dirs: ["~/.config/wigidash/widgets"]   # drop your own widget .py files here
+
+# home_assistant:
+#   url: http://homeassistant.local:8123
+#   token_file: ~/.config/wigidash/ha_token   # long-lived access token
+
+pages:
+  - name: Overview
+    grid: {cols: 4, rows: 3, gap: 10}
+    widgets:
+      - {type: clock, at: [0, 0, 1, 1]}
+      - {type: system, at: [1, 0, 1, 2]}
+      # - {type: node, name: tower, url: "http://tower.lan:9100/metrics", at: [2, 0, 1, 2]}
+      - {type: checks, title: Services, at: [3, 0, 1, 3], checks: [
+          {name: "Example", http: "https://example.com"},
+          {name: "Nothing here", tcp: "127.0.0.1:9"}]}
+      - {type: text, text: "hello from yaml", at: [0, 1, 1, 1]}
+      # - {type: ha_entity, entity: sensor.outdoor_temperature, at: [0, 2, 1, 1]}

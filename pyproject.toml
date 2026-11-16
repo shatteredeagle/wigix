@@ -5,7 +5,10 @@ description = "Open-source Linux driver and dashboard for the G.SKILL WigiDash"
 readme = "README.md"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.10"
-dependencies = ["pyusb", "pillow"]
+dependencies = ["pyusb", "pillow", "numpy", "pyyaml", "psutil", "requests"]
+
+[project.scripts]
+wigidash = "wigidash.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

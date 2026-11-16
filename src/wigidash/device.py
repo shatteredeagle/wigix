@@ -5,6 +5,7 @@ Per frame: 0x91 (rect) -> 0x61 (byte length) -> bulk -> 0x70 (commit).
 """
 import struct
 
+import numpy as np
 import usb.core
 import usb.util
 
@@ -12,16 +13,10 @@ W, H = 1016, 592
 REQ_TYPE = 0x21  # host->device, class, interface
 
 def rgb565(img):
-    img = img.convert("RGB").resize((W, H))
-    out = bytearray(W * H * 2)
-    px = img.load()
-    i = 0
-    for y in range(H):
-        for x in range(W):
-            r, g, b = px[x, y]
-            v = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-            out[i] = v & 255; out[i + 1] = v >> 8; i += 2
-    return bytes(out)
+    """Convert a PIL image to the panel's RGB565 little-endian byte format."""
+    a = np.asarray(img.convert("RGB").resize((W, H)), dtype=np.uint16)
+    v = ((a[..., 0] >> 3) << 11) | ((a[..., 1] >> 2) << 5) | (a[..., 2] >> 3)
+    return v.astype("<u2").tobytes()
 
 class WigiDash:
     def __init__(self):
