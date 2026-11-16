@@ -3,3 +3,6 @@ __pycache__/
 *.egg-info/
 # local reverse-engineering workspace: VM disk, vendor installers, raw USB captures
 _work/
+dist-appimage/
+editor_token
+*.bak
