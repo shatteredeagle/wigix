@@ -1,0 +1,15 @@
+[project]
+name = "wigidash"
+version = "0.1.0"
+description = "Open-source Linux driver and dashboard for the G.SKILL WigiDash"
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+requires-python = ">=3.10"
+dependencies = ["pyusb", "pillow"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
