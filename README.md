@@ -41,7 +41,7 @@ pipx install git+https://github.com/shatteredeagle/wigix   # Arch package, sourc
 wigix init --udev     # prints the udev rule and commands so your user can open the panel
 wigix init            # starter config in ~/.config/wigix/dashboard.yaml
 wigix doctor          # checks everything and tells you how to fix problems
-wigix run -c ~/.config/wigix/dashboard.yaml   # then `wigix url` prints the editor link
+wigix autostart enable --boot                 # start at boot/login (daemon + tray); then `wigix url` prints the editor link
 ```
 
 No panel at hand? `wigix preview -c dashboard.yaml -o preview.png` renders page 1 to a PNG. Full walkthrough, systemd

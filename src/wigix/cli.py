@@ -57,6 +57,13 @@ def main():
     tr.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
     tr.add_argument("--quiet", action="store_true", help="no desktop notifications when the state turns bad")
     sub.add_parser("devices", help="list matching USB devices")
+    au = sub.add_parser("autostart", help="start wigix at login (and optionally at boot): enable | disable | status")
+    au.add_argument("action", choices=["enable", "disable", "status"])
+    au.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
+    au.add_argument("--boot", action="store_true", help="also start at boot, before login (systemd linger)")
+    tg = au.add_mutually_exclusive_group()
+    tg.add_argument("--tray", dest="tray", action="store_true", default=None, help="also start the tray icon")
+    tg.add_argument("--no-tray", dest="tray", action="store_false", help="do not set up the tray icon")
     ur = sub.add_parser("url", help="print the web editor's access link (contains a secret token)")
     ur.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -74,6 +81,9 @@ def main():
         sys.exit(tray(a.config, a.quiet))
     if a.cmd == "devices":
         sys.exit(_devices())
+    if a.cmd == "autostart":
+        from .autostart import main as autostart
+        sys.exit(autostart(a.action, a.config, a.boot, a.tray))
     if a.cmd == "url":
         from .editor import editor_url
         ecfg = load_config(a.config).get("editor") or {}

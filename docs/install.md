@@ -82,18 +82,29 @@ While `wigix run` is up, open the editor at **http://localhost:8765**: drag and 
 save; the daemon hot-reloads the file. The starter config enables it with `editor: {port: 8765}`. It binds to
 localhost only.
 
-## 4. Start it at login (systemd user unit)
+## 4. Start it at login (or at boot)
+
+One command sets it all up (daemon unit, started right away, plus the tray icon if PyQt6 is installed):
 
 ```sh
-wigix init --systemd       # writes ~/.config/systemd/user/wigix.service for THIS install
-systemctl --user daemon-reload && systemctl --user enable --now wigix
-# or in one step: wigix init --systemd --enable
+wigix autostart enable            # starts at every login, and starts it now
+wigix autostart enable --boot     # also at boot, before anyone logs in (systemd "linger")
+wigix autostart status            # what is set up
+wigix autostart disable           # undo (add --boot to turn linger off as well)
+```
+
+It writes the systemd user unit for THIS install (pipx, venv or system) into `~/.config/systemd/user/`, and the tray's
+autostart entry into `~/.config/autostart/`. Nothing needs root; if `--boot` cannot enable linger it prints the one
+`sudo loginctl enable-linger` line to run. The tray menu also has a **Start at login** checkbox.
+
+Manual route and logs:
+
+```sh
+wigix init --systemd --enable      # just the unit
 journalctl --user -u wigix -f      # logs
 ```
 
-The Arch package ships the unit at `/usr/lib/systemd/user/wigix.service`: just `systemctl --user enable --now wigix`.
-To keep the dashboard running while you are logged out, run `loginctl enable-linger $USER`.
-
+The Arch package ships the unit at `/usr/lib/systemd/user/wigix.service`: `systemctl --user enable --now wigix`.
 Only one process can hold the panel: stop the service (`systemctl --user stop wigix`) before running `wigix run` by
 hand.
 

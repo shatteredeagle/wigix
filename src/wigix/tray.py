@@ -144,7 +144,7 @@ def status_line(status: dict | None) -> str:
     return f"Panel connected: {status.get('page_name', '')}".rstrip(": ")
 
 
-def build_menu(status: dict | None, has_systemctl: bool = False) -> tuple[MenuItem, ...]:
+def build_menu(status: dict | None, has_systemctl: bool = False, autostart: bool | None = None) -> tuple[MenuItem, ...]:
     """The menu for a status snapshot; equal specs mean the Qt menu does not need rebuilding."""
     items = [MenuItem("label", status_line(status)), MenuItem("action", "Open editor", "open_editor")]
     if status:
@@ -163,6 +163,8 @@ def build_menu(status: dict | None, has_systemctl: bool = False) -> tuple[MenuIt
     items.append(MenuItem("separator"))
     if has_systemctl:
         items.append(MenuItem("action", "Restart daemon", "restart_daemon"))
+        if autostart is not None:
+            items.append(MenuItem("action", "Start at login", "toggle_autostart", autostart))
     items.append(MenuItem("action", "Quit tray", "quit"))
     return tuple(items)
 
@@ -271,7 +273,8 @@ def main(config_path, quiet: bool = False) -> int:
     tray = QtWidgets.QSystemTrayIcon(icons["disconnected"])
     menu = QtWidgets.QMenu()
     tray.setContextMenu(menu)
-    ui = {"spec": None, "state": None, "busy": False}
+    from . import autostart as _autostart
+    ui = {"spec": None, "state": None, "busy": False, "status": None, "autostart": _autostart.daemon_enabled()}
 
     class Result(QtCore.QObject):
         done = QtCore.pyqtSignal(object)
@@ -307,6 +310,7 @@ def main(config_path, quiet: bool = False) -> int:
         pool.start(job)
 
     def apply(status):
+        ui["status"] = status
         state = tray_state(status)
         if should_notify(ui["state"], state) and not quiet:
             tray.showMessage("wigix", tooltip(status).partition("\n")[2],
@@ -315,7 +319,7 @@ def main(config_path, quiet: bool = False) -> int:
             tray.setIcon(icons[state])
             ui["state"] = state
         tray.setToolTip(tooltip(status))
-        spec = build_menu(status, has_systemctl)
+        spec = build_menu(status, has_systemctl, ui.get("autostart"))
         if spec != ui["spec"]:
             menu.clear()
             populate_menu(menu, spec, on_action)
@@ -334,6 +338,12 @@ def main(config_path, quiet: bool = False) -> int:
     def on_action(key):
         if key == "open_editor":
             QtGui.QDesktopServices.openUrl(QtCore.QUrl(editor_url(config_path, *_host_port(client))))
+        elif key == "toggle_autostart":
+            from . import autostart as _auto
+            on = bool(ui.get("autostart"))
+            _auto.disable(say=lambda *_: None, stop_now=False) if on else _auto.enable(str(config_path), tray=None, say=lambda *_: None)
+            ui["autostart"] = _auto.daemon_enabled()
+            apply(ui.get("status"))
         elif key == "restart_daemon":
             subprocess.Popen(["systemctl", "--user", "restart", "wigix"], stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)

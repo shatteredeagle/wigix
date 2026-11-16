@@ -38,8 +38,11 @@ Left-click (or right-click) opens the menu; middle-click toggles pause.
 ## Start at login
 
 ```sh
-wigix init --tray       # writes ~/.config/autostart/wigix-tray.desktop (use --force to replace it)
+wigix autostart enable  # daemon + tray at login (the tray only if PyQt6 is installed)
+wigix init --tray       # just the tray: writes ~/.config/autostart/wigix-tray.desktop (--force to replace it)
 ```
+
+The tray menu also has a **Start at login** checkbox that turns the daemon's login start on and off.
 
 or copy [contrib/wigix-tray.desktop](../contrib/wigix-tray.desktop) there yourself. If the tray host is not up yet at
 login, the tray waits up to 30 seconds for it before giving up.
