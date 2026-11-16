@@ -5,7 +5,8 @@ description = "Open-source Linux driver and dashboard for the G.SKILL WigiDash"
 readme = "README.md"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.10"
-dependencies = ["pyusb", "pillow", "numpy", "pyyaml", "psutil", "requests", "websocket-client"]
+dependencies = ["pyusb", "pillow", "numpy", "pyyaml", "psutil", "requests", "websocket-client",
+                "icalendar>=6", "recurring-ical-events>=3"]
 
 [project.scripts]
 wigidash = "wigidash.cli:main"

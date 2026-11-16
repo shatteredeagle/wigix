@@ -34,7 +34,7 @@ def _handler(srv):
             req = Request(self.command, u.path, parse_qs(u.query), {k.lower(): v for k, v in self.headers.items()},
                           self.rfile.read(n) if n else b"")
             srv.requests.append(req)
-            route = srv.routes.get((self.command, u.path)) or srv.routes.get(("*", u.path))
+            route = srv.routes.get((self.command, u.path), srv.routes.get(("*", u.path)))
             status, body, headers = 404, {"error": "no route"}, {}
             if route is not None:
                 out = route(req) if callable(route) else route

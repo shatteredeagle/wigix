@@ -70,4 +70,4 @@ Run `pytest` before opening a PR.
 
 ## Docs
 
-Add a short section to `docs/integrations.md`: config example, what each widget shows, auth notes.
+Add a short section to a docs page (`docs/integrations-*.md`, or a new one linked from the README): config example, what each widget shows, auth notes.

@@ -183,3 +183,19 @@ def test_alerts_scan_finds_problem_sensors(fake):
     page, _ = render(reg, {"type": "ha_alerts"})
     assert list(page.items[0][0].alerts()) == ["binary_sensor.leak"]       # the door sensor is not a problem class
     reg.stop()
+
+
+def test_entity_tap_toggles_graph_unless_action_configured(fake):
+    fake.history["sensor.temp"] = [1, 2, 3, 4]
+    reg = make(fake)
+    ha = reg.get(None, "home_assistant")
+    assert wait(lambda: ha.connected)
+    page, flat = render(reg, {"type": "ha_entity", "entity": "sensor.temp"})
+    w = page.items[0][0]
+    assert w.on_tap(0, 0) is True and w._graph
+    w.update()
+    assert w.values == [1.0, 2.0, 3.0, 4.0]
+    assert page.render().tobytes() != flat.tobytes()          # graph view differs from the value view
+    w.cfg["on_tap"] = "next_page"
+    assert w.on_tap(0, 0) is False                             # the configured action wins
+    reg.stop()

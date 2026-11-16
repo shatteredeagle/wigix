@@ -74,9 +74,23 @@ class HAWidget(Widget):
 
 @widget("ha_entity")
 class HAEntity(HAWidget):
-    """One entity as a big value, with a "changed 3m ago" line."""
+    """One entity as a big value with a "changed 3m ago" line. Tap a numeric one to flip to its history graph
+    (unless the widget has its own ``on_tap``). ``hours`` sets the graph span."""
+    interval = 30.0
     fields = [ENTITY, NAME, INTEG, {"name": "unit", "type": "string", "default": ""},
-              {"name": "precision", "type": "int", "default": ""}, RULES]
+              {"name": "precision", "type": "int", "default": ""}, {"name": "hours", "type": "float", "default": 24}, RULES]
+    _graph = False
+    values: list = []
+
+    def on_tap(self, x, y):
+        if self.cfg.get("on_tap"):
+            return False
+        self._graph = not self._graph
+        return True
+
+    def update(self):
+        if self._graph:
+            self.values = self.ha.history(self.cfg["entity"], float(self.cfg.get("hours", 24)))
 
     def draw(self, cv, box):
         s = self.guard(cv, box)
@@ -84,6 +98,13 @@ class HAEntity(HAWidget):
             return
         x0, y0, x1, y1 = cv.card(box, self.label(s))
         cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+        if self._graph:
+            cv.text((x1, box[1] + 8), self.display(s), size=22, bold=True, color=self.value_color(s), anchor="ra")
+            if len(self.values) > 1:
+                cv.spark((x0, y0 + 14, x1, y1 - 4), self.values)
+            else:
+                cv.text((cx, cy), "loading…", size=18, color=THEME["dim"], anchor="mm")
+            return
         cv.text((cx, cy - 4), self.display(s), size=54, bold=True, color=self.value_color(s), anchor="mm", max_width=x1 - x0)
         cv.text((cx, y1 - 2), rel_time(s.get("last_changed", "")), size=16, color=THEME["dim"], anchor="mb")
 

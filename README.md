@@ -48,6 +48,8 @@ screen until you **unplug and replug** the USB cable. A fresh plug-in works.
 ## Docs
 
 - [Home Assistant](docs/home-assistant.md)
+- [Monitoring integrations](docs/integrations-monitoring.md): JSON/HTTP, Prometheus, Alertmanager, Docker, Uptime Kuma
+- [Network and personal integrations](docs/integrations-network.md): Pi-hole, AdGuard, UniFi, weather, calendar, media
 - [Writing widgets and integrations](docs/writing-plugins.md)
 - [USB protocol](docs/protocol.md)
 
