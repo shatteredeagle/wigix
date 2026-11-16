@@ -90,7 +90,7 @@ class Dashboard:
                 threading.Thread(target=self._worker, args=(w,), daemon=True).start()
 
     # --- touch -------------------------------------------------------------------------------
-    SWIPE_PX, TAP_PX, TAP_SECS = 140, 30, 1.0
+    SWIPE_PX, TAP_PX, TAP_SECS = 90, 30, 1.0
 
     def goto(self, target):
         self._wake.set()
@@ -128,7 +128,7 @@ class Dashboard:
             log.exception("tap action failed")
 
     def _touch_loop(self):
-        start = None
+        start, swiped = None, False
         while not self._stop.is_set():
             dev = self.dev
             if dev is None:
@@ -144,14 +144,19 @@ class Dashboard:
                 continue
             if t.down:
                 if start is None:
-                    start = (t.x, t.y, time.time())
+                    start, swiped = (t.x, t.y, time.time()), False
                 last = (t.x, t.y)
-            elif start is not None:
-                dx, dy, dt = last[0] - start[0], last[1] - start[1], time.time() - start[2]
-                if abs(dx) > self.SWIPE_PX and abs(dx) > 2 * abs(dy) and self.cfg.get("swipe", True):
+                dx, dy = t.x - start[0], t.y - start[1]
+                # fire as soon as the drag is clearly horizontal and long enough
+                if (not swiped and self.cfg.get("swipe", True) and abs(dx) > self.SWIPE_PX
+                        and abs(dx) > 1.5 * abs(dy)):
+                    swiped = True
                     self._last_action = time.time()
                     self.goto("next_page" if dx < 0 else "prev_page")
-                elif abs(dx) < self.TAP_PX and abs(dy) < self.TAP_PX and dt < self.TAP_SECS:
+            elif start is not None:
+                dx, dy, dt = last[0] - start[0], last[1] - start[1], time.time() - start[2]
+                if (not swiped and abs(dx) < self.TAP_PX and abs(dy) < self.TAP_PX
+                        and dt < self.TAP_SECS):
                     self.handle_tap(*start[:2])
                 start = None
             time.sleep(0.008)
