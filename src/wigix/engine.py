@@ -260,6 +260,7 @@ class Dashboard:
         try:
             if not w.on_tap(x, y):
                 self.run_action(w.cfg.get("on_tap"), w)
+            self._wake.set()                 # redraw now so press feedback shows
         except Exception:
             log.exception("tap action failed")
 
