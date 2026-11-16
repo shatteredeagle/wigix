@@ -7,15 +7,15 @@
         password_file: ~/.config/wigix/pihole_pw   # v6 web/app password (omit when none is set)
         # version: 5                                # legacy v5: use api_token(_file) instead of a password
         # api_token_file: ~/.config/wigix/pihole_token
-        # verify: false                             # self-signed https
+        # verify: ~/.config/wigix/ca.pem             # https with a self-signed certificate: a CA file, or false (see docs)
 
 ``data`` is normalised so widgets do not care about the version (same keys as the AdGuard integration):
 ``{kind, queries, blocked, percent_blocked, enabled, domains_blocked, clients}``.
 """
 import requests
-import urllib3
 
 from . import integration
+from .net import AuthError, tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -27,9 +27,7 @@ class PiHole(PollingIntegration):
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
         self.version = int(cfg.get("version", 6))
-        self.verify = cfg.get("verify", True)
-        if not self.verify:
-            urllib3.disable_warnings()
+        self.verify = tls_verify(cfg.get("verify"))
         self.base = cfg["url"].rstrip("/")
         self.password = read_secret(cfg.get("password"), cfg.get("password_file"), "PIHOLE_PASSWORD")
         self.token = read_secret(cfg.get("api_token"), cfg.get("api_token_file"), "PIHOLE_API_TOKEN")
@@ -43,10 +41,12 @@ class PiHole(PollingIntegration):
     # -- v6 session handling ---------------------------------------------------------------------------
     def _login(self):
         r = requests.post(self.base + "/api/auth", json={"password": self.password}, verify=self.verify, timeout=6)
+        if r.status_code in (401, 403):
+            raise AuthError()
         r.raise_for_status()
         session = r.json().get("session", {})
         if not session.get("valid") or not session.get("sid"):
-            raise RuntimeError("login failed: " + str(session.get("message") or "bad password"))
+            raise AuthError()
         self.sid = session["sid"]
 
     def _request(self, method, path, **kw):

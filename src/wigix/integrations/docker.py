@@ -5,7 +5,7 @@
         type: docker
         socket: /var/run/docker.sock        # default; the user running wigix needs access to it
         # url: tcp://docker-host.lan:2375   # or a TCP endpoint (http:// and https:// work too)
-        # verify: false                     # https endpoints only
+        # verify: false                     # https endpoints only: false, or a CA bundle path
 
 ``data`` is a list of ``{name, state, status, image}``: ``state`` is Docker's (running, exited, paused,
 restarting, dead, created) and ``status`` its text ("Up 3 hours (unhealthy)"). Only the standard library
@@ -16,10 +16,10 @@ from __future__ import annotations
 import http.client
 import json
 import socket
-import ssl
 from urllib.parse import urlparse
 
 from . import integration
+from .net import ssl_context, tls_verify
 from .polling import PollingIntegration
 
 
@@ -46,9 +46,7 @@ class Docker(PollingIntegration):
             return _UnixConnection(self.cfg.get("socket", "/var/run/docker.sock"))
         u = urlparse(url.replace("tcp://", "http://", 1))
         if u.scheme == "https":
-            ctx = ssl.create_default_context()
-            if not self.cfg.get("verify", True):
-                ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+            ctx = ssl_context(tls_verify(self.cfg.get("verify")))
             return http.client.HTTPSConnection(u.hostname, u.port or 2376, timeout=8, context=ctx)
         return http.client.HTTPConnection(u.hostname, u.port or 2375, timeout=8)
 

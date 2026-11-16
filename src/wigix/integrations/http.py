@@ -8,23 +8,31 @@
         headers: {Accept: application/json}        # optional extra headers
         paths: [/v1/stats, /v1/queue]              # polled every `interval` seconds
         interval: 30
-        verify: true
+        verify: true                               # or a CA bundle path; false only for self-signed (see docs)
+
+The token and ``headers`` are sent only to ``base_url``: a path given as an absolute URL on another host is
+fetched without them.
 
 Widgets name the request they want (``request: /v1/stats``) and a path into the JSON (``path: data.items[0].name``).
 A request that is not in ``paths`` is added the first time a widget asks for it and shows up one poll later.
 """
 from __future__ import annotations
 
+import logging
 import re
 import threading
+from urllib.parse import urlsplit
 
 import requests
 
 from . import integration
+from .net import tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
+log = logging.getLogger("wigix")
 _MISSING = object()
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 # One path step: a bare key, an [index], or a ["quoted key"] (for keys that contain dots or brackets).
 _STEP = re.compile(r"""\.?([^.\[\]]+)|\[(-?\d+)\]|\[\s*"([^"]*)"\s*\]|\[\s*'([^']*)'\s*\]""")
 
@@ -59,6 +67,16 @@ def json_path(data, expr, default=None):
     return cur
 
 
+def _origin(url: str) -> tuple:
+    u = urlsplit(url)
+    scheme = u.scheme.lower()
+    try:
+        port = u.port or _DEFAULT_PORTS.get(scheme)
+    except ValueError:
+        port = None
+    return scheme, (u.hostname or "").lower(), port
+
+
 @integration("http")
 class HttpJson(PollingIntegration):
     interval = 30.0
@@ -71,11 +89,12 @@ class HttpJson(PollingIntegration):
         for p in ([cfg["path"]] if cfg.get("path") else []) + ([paths] if isinstance(paths, str) else list(paths)):
             self._want(p)
         self.s = requests.Session()
-        self.s.verify = cfg.get("verify", True)
-        self.s.headers.update({str(k): str(v) for k, v in (cfg.get("headers") or {}).items()})
+        self.s.verify = tls_verify(cfg.get("verify"))
+        # Kept off the session: they are sent only to the configured base_url, never to an absolute URL elsewhere.
+        self._headers = {str(k): str(v) for k, v in (cfg.get("headers") or {}).items()}
         tok = read_secret(cfg.get("token"), cfg.get("token_file"), cfg.get("token_env", "HTTP_TOKEN"))
         if tok:
-            self.s.headers["Authorization"] = f"Bearer {tok}"
+            self._headers["Authorization"] = f"Bearer {tok}"
 
     def _want(self, path: str) -> None:
         with self._lock:
@@ -97,8 +116,11 @@ class HttpJson(PollingIntegration):
         out = {}
         for p in paths:
             url = p if p.startswith(("http://", "https://")) else base + "/" + p.lstrip("/")
+            same_host = bool(base) and _origin(url) == _origin(base)
+            if self._headers and not same_host:
+                log.debug("http %s: not sending the integration's headers to %s (outside base_url)", self.name, _origin(url)[1])
             try:
-                r = self.s.get(url, timeout=8)
+                r = self.s.get(url, headers=self._headers if same_host else None, timeout=8)
                 r.raise_for_status()
                 out[p] = r.json()
             except (requests.RequestException, ValueError) as e:

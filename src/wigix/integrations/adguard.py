@@ -6,16 +6,16 @@
         url: http://adguard.lan:3000
         username: admin
         password_file: ~/.config/wigix/adguard_pw
-        # verify: false          # self-signed https
+        # verify: ~/.config/wigix/ca.pem   # https with a self-signed certificate: a CA file, or false (see docs)
 
 ``data`` has the same keys as the Pi-hole integration:
 ``{kind, queries, blocked, percent_blocked, enabled, ...}`` (statistics cover AdGuard's retention window,
 24 h by default).
 """
 import requests
-import urllib3
 
 from . import integration
+from .net import AuthError, tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -27,15 +27,15 @@ class AdGuard(PollingIntegration):
 
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
-        self.verify = cfg.get("verify", True)
-        if not self.verify:
-            urllib3.disable_warnings()
+        self.verify = tls_verify(cfg.get("verify"))
         self.base = cfg["url"].rstrip("/")
         password = read_secret(cfg.get("password"), cfg.get("password_file"), "ADGUARD_PASSWORD")
         self.auth = (cfg.get("username", ""), password) if cfg.get("username") else None
 
     def _get(self, path):
         r = requests.get(self.base + path, auth=self.auth, verify=self.verify, timeout=6)
+        if r.status_code in (401, 403):
+            raise AuthError()
         r.raise_for_status()
         return r.json()
 

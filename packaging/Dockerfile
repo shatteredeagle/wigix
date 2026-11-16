@@ -7,6 +7,10 @@ WORKDIR /src
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install --no-cache-dir .
+# Run as an unprivileged user. Access to the USB node comes from a supplementary group (compose: group_add).
+RUN useradd --system --uid 10001 --create-home --home-dir /home/wigix wigix \
+ && mkdir /config && chown wigix /config
+USER wigix
 VOLUME /config
 EXPOSE 8765
 ENTRYPOINT ["wigix"]

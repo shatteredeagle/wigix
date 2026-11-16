@@ -5,7 +5,7 @@
         type: alertmanager
         url: https://alertmanager.example.com
         token_file: ~/.config/wigix/am_token     # optional; or username/password(_file) for basic auth
-        verify: true
+        verify: true                 # or a CA bundle path; false only for self-signed (see docs)
 
 ``data`` is a list of ``{name, severity, summary, instance}``, most severe first.
 """

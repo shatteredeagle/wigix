@@ -13,6 +13,7 @@ per track, so drawing never does I/O).
 import io
 import pathlib
 import shutil
+import stat
 import subprocess
 import urllib.parse
 
@@ -20,6 +21,7 @@ import requests
 from PIL import Image
 
 from . import integration
+from .net import fetch_limited
 from .polling import PollingIntegration
 
 SEP = "\x1f"
@@ -34,6 +36,18 @@ def _seconds(microseconds: str) -> float:
         return int(microseconds) / 1e6
     except ValueError:
         return 0.0
+
+
+def _read_art_file(path: pathlib.Path) -> bytes:
+    """Read a cover file, refusing anything that is not a regular file of at most MAX_ART_BYTES (/dev/zero, a FIFO ...)."""
+    st = path.stat()
+    if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_ART_BYTES:
+        raise ValueError("cover art is not a regular file under the size limit")
+    with path.open("rb") as f:
+        raw = f.read(MAX_ART_BYTES + 1)                 # the file may have grown since stat()
+    if len(raw) > MAX_ART_BYTES:
+        raise ValueError("cover art too large")
+    return raw
 
 
 @integration("mpris")
@@ -74,19 +88,15 @@ class Mpris(PollingIntegration):
         self._art_for, self.art_image = url, None
         try:
             if url.startswith("file://"):
-                raw = pathlib.Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)).read_bytes()
+                raw = _read_art_file(pathlib.Path(urllib.parse.unquote(urllib.parse.urlparse(url).path)))
             elif url.startswith(("http://", "https://")):
-                r = requests.get(url, timeout=6)
-                r.raise_for_status()
-                raw = r.content
+                raw = fetch_limited(url, MAX_ART_BYTES, timeout=6)
             else:
-                return
-            if len(raw) > MAX_ART_BYTES:
                 return
             im = Image.open(io.BytesIO(raw)).convert("RGB")
             im.thumbnail((256, 256))
             self.art_image = im
-        except (OSError, requests.RequestException, ValueError):
+        except (OSError, requests.RequestException, ValueError, Image.DecompressionBombError):
             self.art_image = None
 
     # -- controls (called from the touch thread) -------------------------------------------------------

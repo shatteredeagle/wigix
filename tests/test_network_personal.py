@@ -95,7 +95,7 @@ def test_pihole_v6_reauth_on_401_and_bad_password(srv):
     assert i.connected and state["logins"] == 2 and i.sid == "sid-2"
     bad = reg({"p": {"type": "pihole", "url": srv.url, "password": "nope"}}).get("p", "pihole")
     bad.refresh()
-    assert bad.data is None and ("login" in bad.error or "401" in bad.error)
+    assert bad.data is None and bad.auth_failed and "authentication failed" in bad.error
 
 
 def test_pihole_error_keeps_previous_data(srv):

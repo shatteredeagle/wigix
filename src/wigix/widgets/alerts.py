@@ -4,6 +4,7 @@ import time
 import requests
 
 from . import Widget, widget
+from ..integrations.net import tls_verify
 from ..render import THEME
 
 
@@ -23,7 +24,7 @@ class Checks(Widget):
             t = float(self.cfg.get("timeout", 3))
             try:
                 if "http" in c:
-                    ok = requests.get(c["http"], timeout=t, verify=c.get("verify", True)).status_code < 500
+                    ok = requests.get(c["http"], timeout=t, verify=tls_verify(c.get("verify"))).status_code < 500
                 else:
                     host, port = c["tcp"].rsplit(":", 1)
                     socket.create_connection((host, int(port)), timeout=t).close()

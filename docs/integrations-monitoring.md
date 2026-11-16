@@ -25,7 +25,7 @@ integrations:
     token_file: ~/.config/wigix/api_token   # optional bearer token (or token: / env HTTP_TOKEN)
     headers: {Accept: application/json}        # optional extra headers, e.g. {X-Api-Key: ...}
     paths: [/v1/stats, /v1/queue]              # polled every `interval` seconds (default 30)
-    verify: true                               # false for self-signed https
+    verify: true                               # or a CA bundle path; false only for self-signed https
 
 widgets:
   - {type: json_value, at: [0, 0, 1, 1], name: Queue, request: /v1/stats, path: "data.queue.length"}
@@ -37,6 +37,8 @@ widgets:
 
 - `request` is one of the URL paths the integration polls (blank = the first). A request that is not in
   `paths` is added the first time a widget asks for it and fills in one poll later.
+- The bearer token and `headers` go only to `base_url` (same scheme, host and port). A request given as an absolute
+  URL on another host is fetched without them.
 - `path` is a small path language: `data.items[0].name`, `[-1]` for the last item, `a["key.with.dots"]`.
   A missing step shows a dash rather than an error.
 - `json_value` shows a number (numeric strings work too), text, or the length of a list/object.
@@ -111,6 +113,42 @@ Uses the public status page API, so no login or API key: create a status page in
 want to see (only those are visible). The widget shows a dot per monitor (green up, red down, amber pending,
 blue maintenance, grey no data yet), the latest ping, and `all up` / `N down` in the header. Down monitors come first;
 `only_problems: true` hides the rest.
+
+## TLS and self-signed certificates
+
+Every integration and widget that talks https checks the server certificate by default (`verify: true`). Proxmox,
+Unraid and UniFi ship self-signed certificates, so out of the box they fail with
+
+    certificate verification failed: set `verify: false` or `verify: /path/to/ca.pem` (see docs)
+
+Pick one:
+
+```yaml
+integrations:
+  pve:
+    type: proxmox
+    url: https://pve.lan:8006
+    token_id: monitor@pve!wigix
+    token_file: ~/.config/wigix/pve_token
+    verify: ~/.config/wigix/pve-ca.pem   # best: trust exactly this certificate (or its CA); ~ is expanded
+    # verify: false                      # accept any certificate: the traffic is encrypted but the server is not checked
+```
+
+- **A CA file (recommended).** Export the certificate (Proxmox: `/etc/pve/pve-root-ca.pem`; Unraid and UniFi: download
+  it from the browser's certificate viewer, PEM format) and point `verify:` at it. The editor's checkbox only
+  shows true/false: set a path in the YAML.
+- **`verify: false`** turns checking off for that integration only. wigix then silences urllib3's
+  "unverified HTTPS request" warning (once, for the process); it is never silenced for integrations that verify.
+  Anyone on your network path can then impersonate the server and read the API token it receives, so use it only on
+  a network you trust.
+- **Bambu printers** always use an unverified TLS connection, by protocol design: the printer presents a
+  self-signed certificate that cannot be pinned, and the LAN access code is the only credential. There is no `verify`
+  option for `bambu`.
+- `verify` is accepted by `home_assistant`, `http`, `prometheus`, `alertmanager`, `uptime_kuma`, `pihole`,
+  `adguard`, `docker` (https endpoints), `proxmox`, `unraid`, `unifi` and the `camera` and `checks` widgets.
+
+Error messages in the editor and the logs never contain URL query strings or `user:pass@` credentials (a Pi-hole v5
+token travels as `?auth=...`, for example).
 
 ## Testing
 

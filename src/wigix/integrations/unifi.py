@@ -7,14 +7,15 @@
         username: wigix                         # a local read-only account is enough
         password_file: ~/.config/wigix/unifi_pw
         site: default
-        # verify: true                             # consoles ship a self-signed cert; set true if you installed a real one
+        # verify: ~/.config/wigix/unifi-ca.pem     # consoles ship a self-signed cert: trust its CA file (best),
+        # verify: false                            # or turn verification off (see docs: TLS and self-signed certificates)
 
 ``data``: ``{wan: {status, ip, rx_bps, tx_bps}, clients, wifi_clients, wired_clients, devices_up, devices_down}``.
 """
 import requests
-import urllib3
 
 from . import integration
+from .net import AuthError, tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -25,18 +26,18 @@ class UniFi(PollingIntegration):
 
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
-        if not cfg.get("verify", False):
-            urllib3.disable_warnings()
         self.base = cfg["url"].rstrip("/")
         self.site = cfg.get("site", "default")
         self.s = requests.Session()               # keeps the TOKEN cookie
-        self.s.verify = cfg.get("verify", False)
+        self.s.verify = tls_verify(cfg.get("verify"))
         self.logged_in = False
 
     def _login(self):
         password = read_secret(self.cfg.get("password"), self.cfg.get("password_file"), "UNIFI_PASSWORD")
         r = self.s.post(self.base + "/api/auth/login", timeout=8,
                         json={"username": self.cfg.get("username", ""), "password": password, "remember": False})
+        if r.status_code in (401, 403):
+            raise AuthError()                     # a wrong password: do not retry until the config changes
         r.raise_for_status()
         self._csrf(r)
         self.logged_in = True

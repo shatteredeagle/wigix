@@ -1,21 +1,37 @@
 # Run the dashboard in a container. Put your config in ./config/dashboard.yaml
-# (`wigix init --out config/dashboard.yaml` creates one).
+# (`wigix init --out config/dashboard.yaml` creates one) and make it readable by uid 10001
+# (`chmod -R o+rX config`, or `chown -R 10001 config`).
 #
-# Honest note on privileges: libusb needs the raw USB device node, so the container gets /dev/bus/usb
-# and the host's udev rule (contrib/70-wigix.rules) decides who may open it. Nothing else is shared.
-# Use `privileged: true` instead of `devices:` only if your runtime refuses the device mapping.
-# Key and launcher actions (wtype, xdotool) cannot reach your desktop from inside a container.
+# USB access, and what it costs. libusb needs the raw device node of the panel, and Docker cannot hand a single
+# device to a container in a way that survives a replug: `devices: [/dev/bus/usb/001/007]` pins one bus/address,
+# which changes every time the cable is pulled, and mapping the whole `/dev/bus/usb` tree freezes whatever was
+# present at start. So this file uses the least-bad option:
+#   - bind-mount /dev/bus/usb (read-only mount; device I/O still works) so a replugged panel appears live,
+#   - `device_cgroup_rules: c 189:* rmw` allows USB character devices (major 189) and nothing else.
+# Trade-off: the container can SEE every USB device on the host, and may open those its user may open. The real
+# limit is therefore file permissions: the container runs as a non-root user (uid 10001) that is NOT in the group of
+# ordinary USB nodes. Give the panel its own group on the host and add only that group to the container:
+#     SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0660", GROUP="wigix-usb"
+#     (add the ef02 line too; see contrib/70-wigix.rules, `groupadd wigix-usb`, then `getent group wigix-usb`)
+# and start with WIGIX_USB_GID=<that gid>. Other USB devices stay root-only for this container.
+# Use `privileged: true` only if your runtime refuses cgroup rules. Key and launcher actions (wtype, xdotool)
+# cannot reach your desktop from inside a container.
 services:
   wigix:
     build:
       context: ..
       dockerfile: packaging/Dockerfile
     restart: unless-stopped
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
-    # Raw USB nodes are root:root 0664-ish by default; the rule above sets 0660 plus uaccess for the
-    # desktop user, so the container (root) can open it. Rootless runtimes need the rule to grant your group.
     volumes:
       - ./config:/config
+      - /dev/bus/usb:/dev/bus/usb:ro
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    group_add:
+      - "${WIGIX_USB_GID:?set WIGIX_USB_GID to the numeric gid that owns the panel's USB node (see the comments above)}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - "127.0.0.1:8765:8765"   # web editor; set editor: {port: 8765, host: 0.0.0.0} in the config
+      - "127.0.0.1:8765:8765"   # web editor, reachable from this machine only; set editor: {port: 8765, host: 0.0.0.0} in the config

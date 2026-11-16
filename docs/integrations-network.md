@@ -59,8 +59,11 @@ unifi: {type: unifi, url: https://unifi.lan, username: wigix, password_file: ~/.
 
 For UniFi OS consoles (UDM, UDR, Cloud Key Gen2+, ...). Create a **local** user with read-only access to Network;
 Ubiquiti cloud/SSO accounts with 2FA cannot log in this way. The integration signs in with `POST /api/auth/login`,
-keeps the cookie and CSRF token, and signs in again when the console answers 401. `verify` defaults to false
-because consoles ship a self-signed certificate; set it to true if you installed a real one.
+keeps the cookie and CSRF token, and signs in again when the console answers 401. `verify` defaults to true;
+a console's self-signed certificate needs `verify: /path/to/ca.pem` (or `false`), see
+[TLS and self-signed certificates](integrations-monitoring.md#tls-and-self-signed-certificates).
+A rejected password (401/403 at login) is not retried: the card shows "authentication failed" until you fix the
+config or restart wigix, so a typo cannot lock the account. The same goes for Pi-hole v6 and AdGuard Home.
 
 The `unifi` widget shows the WAN status (green dot for ok, amber for warning, red otherwise), download and upload
 throughput, client counts (Wi-Fi/wired on bigger cards) and adopted devices up/down.
@@ -88,7 +91,7 @@ cal: {type: ical, url_file: ~/.config/wigix/cal_url, days: 7, timezone: Europe/P
 Works with any iCalendar feed: Google Calendar's "Secret address in iCal format", Nextcloud/Fastmail share links,
 or a file. The address of a private feed **is** the password, so keep it in `url_file` (the integration also
 keeps it out of error messages and logs). The feed is fetched every 5 minutes; recurring events are expanded for the
-next `days` days (default 7) and events that already ended today are dropped. `timezone` is used for events
+next `days` days (default 7, at most 366; at most 500 occurrences are read per poll) and events that already ended today are dropped. `timezone` is used for events
 without a zone and for display (default: this machine's zone).
 
 The `calendar_agenda` widget lists the next `max_events` (default 4, as many as fit) with a relative day
@@ -106,7 +109,8 @@ Needs the `playerctl` package (`pacman -S playerctl`, `apt install playerctl`, .
 once a second; the progress bar is interpolated between polls.
 
 The `media_player` widget shows title, artist, a progress bar and, when the cell is wide enough, the album cover
-(`file://` or `http(s)://` art URLs, fetched once per track in the background). Tap the left third for previous,
+(`file://` or `http(s)://` art URLs, fetched once per track in the background; a cover must be a regular
+file or download of at most 8 MB). Tap the left third for previous,
 the middle for play/pause, the right third for next.
 
 ## Testing

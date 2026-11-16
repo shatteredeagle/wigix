@@ -6,7 +6,7 @@ Config (under ``integrations:``)::
       type: home_assistant
       url: http://homeassistant.local:8123      # or https://...
       token_file: ~/.config/wigix/ha_token   # long-lived access token (or `token:` / $HA_TOKEN)
-      verify: true                               # TLS verification for https URLs
+      verify: true                               # or a CA bundle path; false only for self-signed (see docs)
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ import requests
 import websocket
 
 from . import Integration, integration
+from .net import describe_error, scrub, tls_verify
 from ..render import read_secret
 
 log = logging.getLogger("wigix.ha")
@@ -32,7 +33,7 @@ class HomeAssistant(Integration):
         super().__init__(name, cfg)
         self.url = cfg.get("url", "http://homeassistant.local:8123").rstrip("/")
         self.token = read_secret(cfg.get("token"), cfg.get("token_file"), "HA_TOKEN")
-        self.verify = cfg.get("verify", True)
+        self.verify = tls_verify(cfg.get("verify"))
         self.states: dict[str, dict] = {}
         self.connected = False
         self.error: str | None = None
@@ -75,11 +76,12 @@ class HomeAssistant(Integration):
             t0 = time.time()
             self._ws = websocket.WebSocketApp(
                 self._ws_url(), on_message=self._on_message, on_close=self._on_close, on_error=self._on_error)
-            sslopt = {} if self.verify else {"cert_reqs": ssl.CERT_NONE, "check_hostname": False}
+            sslopt = ({"cert_reqs": ssl.CERT_NONE, "check_hostname": False} if self.verify is False
+                      else {"ca_certs": self.verify} if isinstance(self.verify, str) else {})
             try:
                 self._ws.run_forever(ping_interval=25, ping_timeout=10, sslopt=sslopt)
             except Exception as e:
-                self.error = str(e)
+                self.error = describe_error(e)
             self.connected = False
             if time.time() - t0 > 30:
                 backoff = 1.0
@@ -87,7 +89,7 @@ class HomeAssistant(Integration):
             backoff = min(backoff * 2, 30.0)
 
     def _on_error(self, _ws, err):
-        self.error = str(err)
+        self.error = describe_error(err) if isinstance(err, BaseException) else scrub(err)
 
     def _on_close(self, *_):
         self.connected = False

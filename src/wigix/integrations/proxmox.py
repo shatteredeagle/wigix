@@ -7,12 +7,13 @@
         token_id: user@pam!name
         token_file: ~/.config/wigix/pve_token   # the token secret
         node: pve                                   # optional: defaults to the first node
-        verify: false                               # PVE ships a self-signed certificate
+        # verify: ~/.config/wigix/pve-ca.pem        # PVE ships a self-signed certificate: trust its CA file (best),
+        # verify: false                             # or turn verification off (see docs: TLS and self-signed certificates)
 """
 import requests
-import urllib3
 
 from . import integration
+from .net import tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -23,10 +24,8 @@ class Proxmox(PollingIntegration):
 
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
-        if not cfg.get("verify", False):
-            urllib3.disable_warnings()
         self.s = requests.Session()
-        self.s.verify = cfg.get("verify", False)
+        self.s.verify = tls_verify(cfg.get("verify"))
         tok = read_secret(cfg.get("token"), cfg.get("token_file"), "PVE_TOKEN")
         self.s.headers["Authorization"] = f"PVEAPIToken={cfg['token_id']}={tok}"
 

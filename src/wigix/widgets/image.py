@@ -15,16 +15,16 @@ import pathlib
 import time
 from functools import lru_cache
 
-import requests
 from PIL import Image, ImageDraw, ImageOps, ImageSequence
 
 from . import Widget, widget
+from ..integrations.net import describe_error, fetch_limited
 from ..render import THEME, font
 
 FITS = ("cover", "contain", "stretch")
 RADIUS = 14                                   # matches the corner radius of cards
 MAX_FRAMES = 300                              # animated GIFs longer than this are cut off (memory)
-MAX_BYTES = 30 * 1024 * 1024                  # refuse to download anything bigger than this
+MAX_BYTES = 30 * 1024 * 1024                  # a download is cut off (not read to the end) beyond this
 
 FIT = {"name": "fit", "type": "string", "default": "cover", "help": "cover (crop to fill) | contain (letterbox) | stretch"}
 ROUNDED = {"name": "rounded", "type": "bool", "default": True, "help": "round the corners like a card"}
@@ -161,11 +161,7 @@ class ImageWidget(Widget):
                 if now < self._next_try:
                     return
                 self._next_try = now + min(refresh, 30.0)            # a failing URL is retried, not hammered
-                r = requests.get(source, timeout=10)
-                r.raise_for_status()
-                if len(r.content) > MAX_BYTES:
-                    raise ValueError("image too large")
-                self._install(*decode(r.content), stamp=now)
+                self._install(*decode(fetch_limited(source, MAX_BYTES, timeout=10)), stamp=now)
             else:
                 path = pathlib.Path(os.path.expanduser(source))
                 mtime = path.stat().st_mtime
@@ -177,7 +173,7 @@ class ImageWidget(Widget):
         except Exception as e:                                       # bad data, HTTP error, timeout ...
             if self._loaded is None:                                 # keep showing the old picture if we have one
                 self._message = "can't load image"
-            self.error = str(e) or type(e).__name__
+            self.error = describe_error(e)                           # never the URL's query string
 
     def _install(self, frames, durations, stamp):
         self._generation += 1

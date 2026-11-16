@@ -8,7 +8,7 @@
         token_file: ~/.config/wigix/prom_token
         # username: wigix
         # password_file: ~/.config/wigix/prom_password
-        verify: true
+        verify: true                 # or a CA bundle path; false only for self-signed (see docs)
         queries:
           cpu: 'avg(1 - rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100'
         ranges:
@@ -26,6 +26,7 @@ import time
 import requests
 
 from . import integration
+from .net import tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -42,7 +43,7 @@ def _num(v):
 def make_session(cfg) -> requests.Session:
     """Session with bearer or basic auth and TLS verification from an integration config."""
     s = requests.Session()
-    s.verify = cfg.get("verify", True)
+    s.verify = tls_verify(cfg.get("verify"))
     tok = read_secret(cfg.get("token"), cfg.get("token_file"), cfg.get("token_env", "PROMETHEUS_TOKEN"))
     if tok:
         s.headers["Authorization"] = f"Bearer {tok}"

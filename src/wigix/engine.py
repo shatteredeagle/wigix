@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw
 
 from . import widgets
 from .integrations import Registry
+from .integrations.net import describe_error
 from .device import H, W, WigiDash, rgb565
 from .overlay import Overlays
 from .render import THEME, Canvas, set_theme, theme_override
@@ -164,7 +165,7 @@ class Dashboard:
                 w.update()
                 w.error = None
             except Exception as e:
-                w.error = str(e)
+                w.error = describe_error(e)
                 log.debug("update failed: %s: %s", w.type_name, e)
             self._stop.wait(min(w.interval, 1.0) if getattr(w, "_halt", False) else w.interval)
 

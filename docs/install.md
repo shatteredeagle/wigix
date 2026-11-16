@@ -30,8 +30,19 @@ python -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/wigix --version
 ```
 
-**Docker**: see [packaging/docker-compose.yml](../packaging/docker-compose.yml). The container gets
-`/dev/bus/usb` (raw USB access) and nothing else; key and launcher actions cannot reach your desktop from inside it.
+**Docker**: see [packaging/docker-compose.yml](../packaging/docker-compose.yml). The container runs as an
+unprivileged user (uid 10001, all capabilities dropped) and the editor port is published on `127.0.0.1` only. Key and
+launcher actions cannot reach your desktop from inside it.
+
+USB access is the one broad part. libusb needs the panel's raw device node, and Docker has no way to hand over a single
+USB device that survives unplugging it (`devices: [/dev/bus/usb/001/007]` breaks at the next replug, and mapping the
+`/dev/bus/usb` directory only captures what was present at start). The compose file therefore bind-mounts
+`/dev/bus/usb` and adds `device_cgroup_rules: ["c 189:* rmw"]` (USB character devices only). The consequence: the
+container can see every USB device on the host. What it may *open* is decided by file permissions: give the panel its own
+group with a udev rule (`GROUP="wigix-usb"` next to `MODE="0660"`, see the comments in the compose file), and set
+`WIGIX_USB_GID` to that group's numeric id, which compose passes as `group_add`. Other USB devices stay root-only to
+the container user. If you do not want that trade-off, run wigix on the host instead (the udev rule below is all it
+needs).
 
 ## 2. Let your user open the panel (udev)
 

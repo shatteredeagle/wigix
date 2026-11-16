@@ -8,6 +8,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -199,16 +200,31 @@ def check_handshake(probe: Probe, present: bool = True) -> Result:
 
 # ---------------------------------------------------------------- config
 
-def _token_files(node, out: list[str]):
+_SECRET_KEY = re.compile(r"(token|password|passwd|api_?key|access_code|secret)$", re.I)
+
+
+def _walk(node, visit):
+    """Call ``visit(key, value)`` for every mapping entry anywhere in a config tree."""
     if isinstance(node, dict):
         for k, v in node.items():
-            if isinstance(k, str) and k.endswith("token_file") and isinstance(v, str):
-                out.append(v)
-            else:
-                _token_files(v, out)
+            visit(k, v)
+            _walk(v, visit)
     elif isinstance(node, list):
         for v in node:
-            _token_files(v, out)
+            _walk(v, visit)
+
+
+def _secret_files(node, out: list[str]):
+    """Every ``*_file`` value (token_file, password_file, api_key_file, url_file, access_code_file, ...)."""
+    _walk(node, lambda k, v: out.append(v) if isinstance(k, str) and k.endswith("_file") and isinstance(v, str) and v else None)
+
+
+def _inline_secrets(node) -> list[str]:
+    """Keys that hold a secret directly in the config (``token: abc``) instead of in a ``*_file``."""
+    found: list[str] = []
+    _walk(node, lambda k, v: found.append(k) if isinstance(k, str) and _SECRET_KEY.search(k)
+          and isinstance(v, (str, int)) and not isinstance(v, bool) and str(v).strip() else None)
+    return sorted(set(found))
 
 
 def check_config(path: str | Path) -> tuple[Result, dict | None]:
@@ -233,22 +249,41 @@ def check_tokens(cfg: dict | None) -> list[Result]:
     if not cfg:
         return []
     files: list[str] = []
-    _token_files(cfg, files)
+    _secret_files(cfg, files)
     out = []
     for f in sorted(set(files)):
         p = Path(os.path.expanduser(f))
         try:
             mode = stat.S_IMODE(p.stat().st_mode)
         except OSError:
-            out.append(Result(f"token file {f}", FAIL, "missing or unreadable",
+            out.append(Result(f"secret file {f}", FAIL, "missing or unreadable",
                               f"create it with the secret inside, then `chmod 600 {f}`"))
             continue
         if mode & 0o077:
-            out.append(Result(f"token file {f}", WARN, f"mode {mode:04o}, readable by others",
+            out.append(Result(f"secret file {f}", WARN, f"mode {mode:04o}, readable by others",
                               f"chmod 600 {f}"))
         else:
-            out.append(Result(f"token file {f}", PASS, f"mode {mode:04o}"))
+            out.append(Result(f"secret file {f}", PASS, f"mode {mode:04o}"))
     return out
+
+
+def check_config_permissions(path: str | Path, cfg: dict | None) -> list[Result]:
+    """The config file itself: a warning when others can read it AND it holds inline secrets, else just a note."""
+    if not cfg:
+        return []
+    p = Path(path).expanduser()
+    try:
+        mode = stat.S_IMODE(p.stat().st_mode)
+    except OSError:
+        return []
+    inline = _inline_secrets(cfg)
+    name = f"config file mode {p}"
+    if not mode & 0o077:
+        return [Result(name, PASS, f"mode {mode:04o}")]
+    if inline:
+        return [Result(name, WARN, f"mode {mode:04o}, readable by others, and it contains inline secrets ({', '.join(inline)})",
+                       f"chmod 600 {p}, or move the secrets into 0600 files (`token_file:`, `password_file:`, ...)")]
+    return [Result(name, PASS, f"mode {mode:04o}, readable by others (fine: it holds no inline secrets)")]
 
 
 # ---------------------------------------------------------------- systemd
@@ -314,6 +349,7 @@ def run_checks(config: str | Path = DEFAULT_CONFIG) -> list[Result]:
     cfg_result, cfg = check_config(config)
     results.append(cfg_result)
     results += check_tokens(cfg)
+    results += check_config_permissions(config, cfg)
     results.append(check_service())
     results += check_optional_tools()
     return results

@@ -5,12 +5,12 @@
         type: unraid
         url: https://tower.lan/graphql
         api_key_file: ~/.config/wigix/unraid_key
-        verify: false
+        # verify: ~/.config/wigix/unraid-ca.pem   # CA bundle for a self-signed certificate, or false (see docs)
 """
 import requests
-import urllib3
 
 from . import integration
+from .net import tls_verify
 from .polling import PollingIntegration
 from ..render import read_secret
 
@@ -25,13 +25,12 @@ class Unraid(PollingIntegration):
 
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
-        if not cfg.get("verify", False):
-            urllib3.disable_warnings()
+        self.verify = tls_verify(cfg.get("verify"))
         self.key = read_secret(cfg.get("api_key"), cfg.get("api_key_file"), "UNRAID_API_KEY")
 
     def poll(self):
         r = requests.post(self.cfg["url"], json={"query": QUERY}, headers={"x-api-key": self.key},
-                          verify=self.cfg.get("verify", False), timeout=8)
+                          verify=self.verify, timeout=8)
         r.raise_for_status()
         j = r.json()
         if j.get("errors"):

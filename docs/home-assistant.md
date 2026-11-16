@@ -18,7 +18,7 @@ and widgets show "connecting…" / "HA offline" instead of crashing.
        type: home_assistant
        url: http://homeassistant.local:8123
        token_file: ~/.config/wigix/ha_token
-       # verify: false        # self-signed https
+       # verify: ~/.config/wigix/ca.pem   # self-signed https: a CA file, or false
    ```
    Widgets use it automatically when it is the only HA integration; otherwise set `integration: ha`.
 

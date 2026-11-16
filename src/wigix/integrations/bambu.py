@@ -10,6 +10,7 @@ Config (under ``integrations:``)::
 
 The printer only sends *changes* after the first full report, so incoming messages are merged into one
 persistent dict, exposed as ``data`` (the printer's ``print`` object) once a complete state has arrived.
+The TLS connection is always unverified: printers use a self-signed certificate and there is no way to pin it.
 See docs/printer-and-audio.md for how to find the serial and access code.
 """
 from __future__ import annotations
@@ -22,10 +23,12 @@ import threading
 import paho.mqtt.client as mqtt
 
 from . import Integration, integration
+from .net import AUTH_FAILED, scrub
 from ..render import read_secret
 
 log = logging.getLogger("wigix.bambu")
 
+BAD_CREDENTIALS = (134, 135)  # MQTT reason codes: bad user name or password, not authorized
 PUSHALL_EVERY = 60.0          # seconds; asks the printer for a full state report again
 
 
@@ -40,6 +43,7 @@ class Bambu(Integration):
         self.data: dict | None = None         # merged ``print`` state; None until the first full report
         self.error: str | None = None
         self.connected = False
+        self.auth_failed = False              # the printer rejected the access code: stop reconnecting
         self._state: dict = {}
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -80,7 +84,8 @@ class Bambu(Integration):
     def _make_client(self) -> mqtt.Client:
         c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"wigix-{self.name}")
         c.username_pw_set("bblp", self.access_code)
-        # Printers present a self-signed certificate, so verification has to stay off.
+        # Bambu printers always use a self-signed certificate (a protocol property, not a setting), so the TLS
+        # connection is deliberately unverified; the access code is the only credential.
         c.tls_set(cert_reqs=ssl.CERT_NONE)
         c.tls_insecure_set(True)
         c.reconnect_delay_set(min_delay=1, max_delay=60)        # paho reconnects with exponential backoff
@@ -95,7 +100,7 @@ class Bambu(Integration):
             self._client.connect_async(self.host, self.port, keepalive=30)
             self._client.loop_start()
         except Exception as e:
-            self.error = str(e)
+            self.error = scrub(e)
             return
         # The printer only pushes deltas, so periodically request a complete report.
         while not self._stop.wait(PUSHALL_EVERY):
@@ -105,7 +110,12 @@ class Bambu(Integration):
     def _on_connect(self, client, _userdata, _flags, reason_code, _properties=None):
         if reason_code.is_failure:
             self.connected = False
-            self.error = f"connect failed: {reason_code}"        # e.g. "Not authorized" for a wrong access code
+            if getattr(reason_code, "value", None) in BAD_CREDENTIALS:               # "Bad user name or password" / "Not authorized"
+                self.auth_failed, self.error = True, AUTH_FAILED
+                self._stop.set()                                   # keep this error: _on_disconnect leaves it alone
+                client.disconnect()                                # and paho stops reconnecting with the wrong code
+                return
+            self.error = scrub(f"connect failed: {reason_code}")
             return
         self.connected = True
         self.error = None
@@ -116,7 +126,7 @@ class Bambu(Integration):
     def _on_disconnect(self, _client, _userdata, _flags, reason_code, _properties=None):
         self.connected = False
         if not self._stop.is_set():
-            self.error = f"disconnected: {reason_code}"
+            self.error = scrub(f"disconnected: {reason_code}")
 
     def _on_message(self, _client, _userdata, msg):
         self.handle_message(msg.payload)

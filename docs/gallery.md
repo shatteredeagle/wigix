@@ -123,7 +123,7 @@ A camera picture (snapshot, stream, Home Assistant or Frigate) with name and LIV
 | `token` | string | - | bearer token for the snapshot/Frigate server |
 | `token_file` | string | - | file holding the bearer token |
 | `headers` | yaml | `{}` | extra HTTP headers for snapshots |
-| `verify` | bool | `true` | verify TLS certificates |
+| `verify` | bool | `true` | verify TLS certificates: true, false, or a CA bundle path (YAML) |
 | `fit` | string | `cover` | cover (crop to fill) \| contain (letterbox) \| stretch |
 | `rounded` | bool | `true` | round the corners like a card |
 

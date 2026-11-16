@@ -5,7 +5,7 @@
         type: uptime_kuma
         url: https://kuma.example.com
         slug: default                 # the status page's URL slug: https://kuma.example.com/status/<slug>
-        verify: true
+        verify: true                 # or a CA bundle path; false only for self-signed (see docs)
 
 Create a status page in Kuma and add the monitors you want; only those are visible here.
 ``data`` is a list of ``{name, status, ping}``: status 1 up, 0 down, 2 pending, 3 maintenance
@@ -16,6 +16,7 @@ from __future__ import annotations
 import requests
 
 from . import integration
+from .net import tls_verify
 from .polling import PollingIntegration
 
 
@@ -26,7 +27,7 @@ class UptimeKuma(PollingIntegration):
     def __init__(self, name, cfg):
         super().__init__(name, cfg)
         self.s = requests.Session()
-        self.s.verify = cfg.get("verify", True)
+        self.s.verify = tls_verify(cfg.get("verify"))
 
     def _get(self, path):
         r = self.s.get(f"{self.cfg['url'].rstrip('/')}/api/status-page/{path}", timeout=8)

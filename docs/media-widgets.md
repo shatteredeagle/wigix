@@ -41,6 +41,9 @@ A video file or live stream, decoded by ffmpeg while its page is visible (no sou
   restarted with a growing delay (1 s up to 30 s) and a "reconnecting" badge shows meanwhile.
 - ffmpeg is killed a few seconds after the page is hidden and restarted when it comes back. Tapping to fullscreen
   (`on_tap: fullscreen`) re-scales the stream to the full screen.
+- The source is a local path or a URL starting with `http://`, `https://`, `rtsp://`, `rtmp://`, `rtp://`, `udp://`
+  or `tcp://`. Anything else (`concat:`, `subfile:`, `data:`, a name starting with `-`) shows "source not allowed",
+  and ffmpeg runs with a protocol whitelist (no `pipe`).
 - Keep credentials out of the config if you share it: put the URL in a file you control and use a placeholder here.
 
 ## `camera`
@@ -94,5 +97,5 @@ integrations:
 The picture is fetched with the integration's `camera_image()` (HA's `/api/camera_proxy/<entity>`), so the same token
 and TLS settings apply. Add `integration: ha` if you have more than one Home Assistant.
 
-Other options: `headers` (extra HTTP headers for snapshots), `verify: false` (self-signed TLS), `token` / `token_file`
+Other options: `headers` (extra HTTP headers for snapshots), `verify` (`false` or a CA file path for self-signed TLS), `token` / `token_file`
 (sent as `Authorization: Bearer ...`).

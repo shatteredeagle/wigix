@@ -22,7 +22,9 @@ def _url(help="Base URL, e.g. http://host:port", default=""):
 
 
 def _verify(default=True):
-    return _f("verify", "bool", default, "Verify the TLS certificate of https URLs (turn off for self-signed certificates)")
+    return _f("verify", "string", "true" if default else "false",
+              "Verify the TLS certificate of https URLs: true, false (only for a trusted LAN), or the path of a CA bundle "
+              "for a self-signed certificate (e.g. ~/.config/wigix/ca.pem)")
 
 
 def _file(name, help, **extra):
@@ -44,13 +46,13 @@ SCHEMAS: dict[str, list[dict]] = {
         _f("token_id", help="API token id, e.g. user@pam!name (a PVEAuditor token is enough)", required=True),
         _file("token_file", "the API token secret", required=True),
         _f("node", help="Node name; empty means the first node"),
-        _verify(False),
+        _verify(),
         _interval(5.0),
     ],
     "unraid": [
         _url("GraphQL endpoint, e.g. https://tower.lan/graphql"),
         _file("api_key_file", "an Unraid API key", required=True),
-        _verify(False),
+        _verify(),
         _interval(5.0),
     ],
     "http": [
@@ -113,7 +115,7 @@ SCHEMAS: dict[str, list[dict]] = {
         _file("password_file", "the account password", required=True),
         _f("site", default="default", help="Site name"),
         _interval(10.0),
-        _verify(False),
+        _verify(),
     ],
     "open_meteo": [
         _f("latitude", "float", 0.0, "Latitude in degrees", required=True),

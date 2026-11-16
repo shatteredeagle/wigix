@@ -6,6 +6,7 @@ import threading
 import time
 
 from . import Integration
+from .net import AUTH_FAILED, AuthError, describe_error
 
 log = logging.getLogger("wigix")
 
@@ -16,6 +17,9 @@ class PollingIntegration(Integration):
     - ``interval`` seconds between polls (overridable with ``interval:`` in the config)
     - ``data`` is None until the first success; after a failure the previous data is kept and ``error`` is set
     - ``connected`` is True while the last poll succeeded
+    - ``poll()`` raises ``AuthError`` when the service definitely rejected our credentials: polling then stops
+      (retrying a bad password only gets us banned) until the config is edited or wigix restarted
+    - ``error`` is scrubbed of URL query strings and credentials, so tokens never reach the editor or the logs
     """
     interval = 10.0
 
@@ -24,6 +28,7 @@ class PollingIntegration(Integration):
         self.data = None
         self.error: str | None = None
         self.updated = 0.0
+        self.auth_failed = False
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -45,17 +50,22 @@ class PollingIntegration(Integration):
 
     def refresh(self):
         """Poll once now (used by tests and for 'refresh after an action')."""
+        if self.auth_failed:
+            return
         try:
             self.data = self.poll()
             self.error = None
             self.updated = time.time()
+        except AuthError:
+            self.auth_failed, self.error = True, AUTH_FAILED
+            log.warning("%s %s: %s", self.type_name, self.name, AUTH_FAILED)
         except Exception as e:
-            self.error = str(e) or type(e).__name__
-            log.debug("%s %s poll failed: %s", self.type_name, self.name, e)
+            self.error = describe_error(e)
+            log.debug("%s %s poll failed: %s", self.type_name, self.name, self.error)
 
     def _run(self):
         backoff = 0
-        while not self._stop.is_set():
+        while not self._stop.is_set() and not self.auth_failed:
             self.refresh()
             interval = float(self.cfg.get("interval", self.interval))
             backoff = min(backoff * 2 or interval, 60.0) if self.error else 0

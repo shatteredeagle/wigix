@@ -6,17 +6,24 @@ stretch), ``rounded``, ``name``. Network sources are treated as live streams and
 
 ffmpeg runs only while the widget is being drawn: a few seconds after its page is hidden the process is killed, and it
 is started again on the next draw. ``FfmpegStream`` does the process handling and is reused by the ``camera`` widget.
+
+The source is untrusted input for ffmpeg: it must be a local path or a URL with one of ``URL_SCHEMES`` (anything else,
+such as ``concat:``, ``subfile:`` or ``data:``, is refused), ffmpeg gets a ``-protocol_whitelist`` for the nested
+protocols a stream legitimately needs (never ``pipe``), and local paths are passed as ``file:<absolute path>`` so
+nothing can be parsed as an option.
 """
 from __future__ import annotations
 
 import atexit
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
 import time
 import weakref
+from urllib.parse import unquote, urlsplit
 
 from PIL import Image
 
@@ -27,8 +34,29 @@ from ..render import THEME
 log = logging.getLogger("wigix")
 
 MAX_FPS = 15
+PROTOCOL_WHITELIST = "file,http,https,tcp,tls,udp,rtp,rtsp,rtmp,crypto"    # no pipe
+URL_SCHEMES = ("http", "https", "rtsp", "rtmp", "rtp", "udp", "tcp")
+BAD_SOURCE = ("ffmpeg missing", "file not found", "source not allowed")
+_SCHEME = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*):")
 IDLE_SECONDS = 5.0           # kill ffmpeg when nobody has drawn the widget for this long
 _LIVE: "weakref.WeakSet[FfmpegStream]" = weakref.WeakSet()
+
+
+def classify_source(source: str) -> tuple[str, str] | None:
+    """Sort a configured source into ``("net", url)`` or ``("file", absolute path)``; None when it must be refused."""
+    source = os.path.expanduser(source.strip())
+    if not source or source.startswith("-"):
+        return None                                             # would be read as an ffmpeg option
+    m = _SCHEME.match(source)
+    if m and not source.startswith("/"):
+        scheme = m.group(1).lower()
+        if scheme == "file":
+            path = unquote(urlsplit(source).path)
+            return ("file", os.path.abspath(path)) if path.startswith("/") else None
+        if scheme in URL_SCHEMES and source[m.end():].startswith("//"):
+            return "net", source
+        return None                                             # concat:, subfile:, data:, ...
+    return "file", os.path.abspath(source)
 
 
 @atexit.register
@@ -43,16 +71,18 @@ class FfmpegStream:
 
     Usage: call ``touch(size)`` from every draw (it starts ffmpeg when needed and tells the stream it is still wanted),
     then read ``frame()``. Nothing here blocks the caller. ``status`` explains why there is no picture
-    ("ffmpeg missing", "file not found", "ended", "reconnecting…") and is None while things work.
+    ("ffmpeg missing", "file not found", "source not allowed", "ended", "reconnecting…") and is None while things work.
     """
 
     def __init__(self, source: str, fit: str = "cover", fps: float = 12, loop: bool = True,
                  idle: float = IDLE_SECONDS, bg=(28, 32, 40)):
         self.source = os.path.expanduser(str(source))
+        kind = classify_source(self.source)
+        self.kind, self.target = kind or (None, "")             # target: the URL, or the absolute path of a file
         self.fit = fit if fit in FITS else "cover"
         self.fps = max(1.0, min(float(fps), MAX_FPS))
         self.loop, self.idle, self.bg = loop, idle, bg
-        self.is_net = "://" in self.source
+        self.is_net = self.kind == "net"
         self.size = (0, 0)
         self.proc: subprocess.Popen | None = None       # the live ffmpeg child, if any (tests check it is reaped)
         self._thread: threading.Thread | None = None
@@ -87,10 +117,13 @@ class FfmpegStream:
                 self._kill()                                    # the manager thread restarts it at the new size
             if self._ended or (self._thread and self._thread.is_alive()):
                 return
+            if self.kind is None:
+                self._problem = "source not allowed"
+                return
             if not self.available():
                 self._problem = "ffmpeg missing"
                 return
-            if not self.is_net and not os.path.isfile(self.source):
+            if not self.is_net and not os.path.isfile(self.target):
                 self._problem = "file not found"
                 return
             self._problem = None
@@ -130,13 +163,14 @@ class FfmpegStream:
         else:
             scale = f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
         args = ["ffmpeg", "-nostdin", "-loglevel", "error"]
-        if self.source.startswith("rtsp"):
+        if self.target.startswith("rtsp"):
             args += ["-rtsp_transport", "tcp"]                  # UDP drops packets on busy Wi-Fi
         if not self.is_net:
             args += ["-re"]                                     # files: play in real time, not as fast as possible
             if self.loop:
                 args += ["-stream_loop", "-1"]
-        return args + ["-i", self.source, "-an", "-vf", f"fps={self.fps},{scale}",
+        source = self.target if self.is_net else "file:" + self.target
+        return args + ["-protocol_whitelist", PROTOCOL_WHITELIST, "-i", source, "-an", "-vf", f"fps={self.fps},{scale}",
                        "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
 
     def _kill(self) -> None:
@@ -238,7 +272,7 @@ class VideoWidget(Widget):
         got = stream.frame()
         if got is None:
             status = stream.status or "loading…"
-            placeholder(cv, box, status, color=THEME["crit"] if status in ("ffmpeg missing", "file not found") else None)
+            placeholder(cv, box, status, color=THEME["crit"] if status in BAD_SOURCE else None)
             return
         paste_tile(cv, got[0], box, self.cfg.get("rounded", True))
         if self.cfg.get("name"):

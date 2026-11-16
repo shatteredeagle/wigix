@@ -12,16 +12,20 @@ its own ``on_tap``. Network I/O happens in ``update()`` on the worker thread; ``
 from __future__ import annotations
 
 import io
+import json
 import time
 
 import requests
 from PIL import Image
 
 from . import Widget, widget
+from ..integrations.net import describe_error, fetch_limited, tls_verify
 from .image import FIT, ROUNDED, fit_tile, paste_tile, pill, placeholder
-from .video import FfmpegStream, clamp_fps
+from .video import BAD_SOURCE, FfmpegStream, clamp_fps
 from ..render import THEME, read_secret
 
+MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024   # a snapshot or a Frigate frame is cut off beyond this
+MAX_EVENT_BYTES = 1024 * 1024
 EVENT_WINDOW = 60.0          # seconds a Frigate detection stays on screen
 STREAM_FPS, FULL_FPS = 10, 15
 SOURCES = ("snapshot_url", "stream_url", "ha_camera", "frigate")
@@ -42,7 +46,7 @@ class CameraWidget(Widget):
               {"name": "token", "type": "string", "default": "", "help": "bearer token for the snapshot/Frigate server"},
               {"name": "token_file", "type": "string", "default": "", "help": "file holding the bearer token"},
               {"name": "headers", "type": "yaml", "default": {}, "help": "extra HTTP headers for snapshots"},
-              {"name": "verify", "type": "bool", "default": True, "help": "verify TLS certificates"},
+              {"name": "verify", "type": "bool", "default": True, "help": "verify TLS certificates: true, false, or a CA bundle path (YAML)"},
               FIT, ROUNDED]
 
     def __init__(self, cfg, ctx):
@@ -104,6 +108,12 @@ class CameraWidget(Widget):
 
     # worker thread -----------------------------------------------------------------------------------
     def update(self):
+        try:
+            self._update()
+        except requests.RequestException as e:
+            raise RuntimeError(describe_error(e)) from None          # the URL (and its query string) never reaches the error
+
+    def _update(self):
         source = self.source
         if source in (None, "multiple", "stream_url"):
             return                                       # stream frames arrive on ffmpeg's own threads
@@ -120,10 +130,11 @@ class CameraWidget(Widget):
                 url = f"{base}/api/{self.cfg['camera']}/latest.jpg"
             else:
                 url = self.cfg["snapshot_url"]
-            r = requests.get(url, headers=self._headers(), timeout=6, verify=self.cfg.get("verify", True))
-            r.raise_for_status()
-            data = r.content
-        im = Image.open(io.BytesIO(data))
+            data = fetch_limited(url, MAX_SNAPSHOT_BYTES, headers=self._headers(), timeout=6,
+                                 verify=tls_verify(self.cfg.get("verify")))
+        if len(data) > MAX_SNAPSHOT_BYTES:
+            raise ValueError("image too large")
+        im = Image.open(io.BytesIO(data))             # raises DecompressionBombError for absurd pixel counts
         im.draft("RGB", (1016, 592))                     # JPEG: decode at reduced size when the camera is bigger
         self._image, self._seq, self._image_time = im.convert("RGB"), self._seq + 1, time.monotonic()
         if source == "frigate":
@@ -132,13 +143,13 @@ class CameraWidget(Widget):
     def _poll_event(self, base: str) -> None:
         """Remember the newest Frigate event so draw() can label it while it is recent. Failures are not fatal."""
         try:
-            r = requests.get(f"{base}/api/events", params={"camera": self.cfg["camera"], "limit": 1},
-                             headers=self._headers(), timeout=6, verify=self.cfg.get("verify", True))
-            r.raise_for_status()
-            events = r.json()
+            events = json.loads(fetch_limited(f"{base}/api/events", MAX_EVENT_BYTES,
+                                              params={"camera": self.cfg["camera"], "limit": 1},
+                                              headers=self._headers(), timeout=6,
+                                              verify=tls_verify(self.cfg.get("verify"))))
             ev = events[0] if events else None
             self._event = (str(ev.get("label") or "event"), float(ev["start_time"])) if ev else None
-        except (requests.RequestException, ValueError, KeyError, TypeError, IndexError):
+        except (requests.RequestException, ValueError, KeyError, TypeError, IndexError):   # ValueError: bad JSON, too large
             self._event = None
 
     # render thread -----------------------------------------------------------------------------------
@@ -182,7 +193,7 @@ class CameraWidget(Widget):
         got = self._picture(size)
         if got is None:
             status = self._stream.status if self._stream else None
-            offline = status in ("ffmpeg missing", "file not found") or (self.error and not self._stream)
+            offline = status in BAD_SOURCE or (self.error and not self._stream)
             placeholder(cv, box, status or ("no signal" if self.error else "loading…"),
                         color=THEME["crit"] if offline else None, title=self.label or None)
             return
