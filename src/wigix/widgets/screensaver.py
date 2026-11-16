@@ -19,7 +19,7 @@ class Screensaver(Widget):
 
     def draw(self, cv, box):
         x0, y0, x1, y1 = box
-        cv.d.rectangle(box, fill=(0, 0, 0))
+        cv.d.rectangle((0, 0, cv.image.width, cv.image.height), fill=(0, 0, 0))
         t = time.time()
         w, h = x1 - x0, y1 - y0
         dim = tuple(int(c * 0.55) for c in THEME["accent"])
