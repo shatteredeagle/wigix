@@ -1,26 +1,61 @@
 # wigidash
 
-Open-source Linux driver for the G.SKILL WigiDash USB panel (1016x592 touchscreen), plus a
-configurable dashboard on top: system stats for many machines, alerts, Home Assistant widgets.
+An open-source Linux driver and configurable dashboard for the **G.SKILL WigiDash** USB touch panel
+(1016x592). Think "btop for all your machines" plus alerts, Home Assistant controls, weather, a calendar and
+launcher buttons, laid out on a grid and edited in your browser.
 
-Status: **early.** The display works (see `docs/protocol.md`). The dashboard daemon and touch
-input are in progress.
+> Status: early but working. Tested on Linux with firmware `1.0.20241006.1755`.
+> Not affiliated with G.SKILL. The USB protocol was worked out from captures for interoperability; no vendor
+> code or firmware is included.
 
-## Quick start
+## What you get
+
+- **Driver** (`wigidash.WigiDash`): show frames, read touch. Protocol notes in [docs/protocol.md](docs/protocol.md).
+- **Dashboard daemon**: pages of widgets on a grid, touch (tap, swipe between pages, fullscreen a widget), hot
+  reload of the config.
+- **Web editor** at `http://localhost:8765`: drag and resize widgets over a live preview, edit their settings, save.
+- **Widgets**: system stats, clock, text, service checks, launcher buttons, and an integrations system for
+  Home Assistant, Proxmox, Unraid, Docker, Prometheus, ... (see [docs/](docs/)).
+- **Plugins**: a widget or integration is one Python file. See [docs/writing-plugins.md](docs/writing-plugins.md).
+
+## Install
 
 ```sh
+git clone <this repo> && cd wigidash
 python -m venv .venv && .venv/bin/pip install -e .
-# udev rule so you don't need root:
+# let your user talk to the panel without root:
 echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0666"' | sudo tee /etc/udev/rules.d/70-wigidash.rules
 sudo udevadm control --reload && sudo udevadm trigger
-.venv/bin/python examples/test_pattern.py
 ```
 
-If the device ignores frames, unplug and replug it (see Quirks in `docs/protocol.md`).
+## Run
 
-## Not affiliated
+```sh
+cp examples/dashboard.yaml ~/.config/wigidash/dashboard.yaml
+.venv/bin/wigidash preview -c ~/.config/wigidash/dashboard.yaml -o preview.png   # no hardware needed
+.venv/bin/wigidash run -c ~/.config/wigidash/dashboard.yaml                      # drive the panel
+.venv/bin/wigidash editor -c ~/.config/wigidash/dashboard.yaml                   # web editor only
+```
 
-Not affiliated with or endorsed by G.SKILL. The protocol was worked out from USB captures for
-interoperability. No vendor code or firmware is included.
+Start it at login: copy `contrib/wigidash.service` to `~/.config/systemd/user/` and
+`systemctl --user enable --now wigidash`. To get the editor inside the daemon, add `editor: {port: 8765}` to the config.
+
+## Known quirk
+
+After the vendor's Windows software (or a firmware flash) has used the panel, it can sit on its boot logo or a black
+screen until you **unplug and replug** the USB cable. A fresh plug-in works.
+
+## Docs
+
+- [Home Assistant](docs/home-assistant.md)
+- [Writing widgets and integrations](docs/writing-plugins.md)
+- [USB protocol](docs/protocol.md)
+
+## Security notes
+
+- The web editor binds to localhost, checks the `Host` header and requires a custom header on writes. Don't expose
+  it to a network you don't trust: it can edit the config, and the config can start commands.
+- `command:` actions are ignored unless the config sets `security: {allow_commands: true}`.
+- Keep API tokens in files with mode 0600 (`token_file:`), not in the YAML.
 
 Licensed under the GPL-3.0.
