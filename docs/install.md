@@ -8,7 +8,7 @@ dashboard on the panel; `wigix doctor` checks each one and tells you what to fix
 **pipx** (recommended, no root):
 
 ```sh
-pipx install git+https://github.com/OWNER/wigix      # or: pipx install wigix, once it is on PyPI
+pipx install git+https://github.com/shatteredeagle/wigix      # or: pipx install wigix, once it is on PyPI
 ```
 
 You also need the libusb system library: Arch `pacman -S libusb`, Debian/Ubuntu `apt install libusb-1.0-0`,
@@ -18,14 +18,14 @@ Fedora `dnf install libusb1`. For crisp text install DejaVu fonts (`ttf-dejavu` 
 **Arch Linux** (package with the udev rule and systemd unit included):
 
 ```sh
-git clone https://github.com/OWNER/wigix && cd wigix/packaging
+git clone https://github.com/shatteredeagle/wigix && cd wigix/packaging
 makepkg -si          # reads packaging/PKGBUILD
 ```
 
 **From source**:
 
 ```sh
-git clone https://github.com/OWNER/wigix && cd wigix
+git clone https://github.com/shatteredeagle/wigix && cd wigix
 python -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/wigix --version
 ```

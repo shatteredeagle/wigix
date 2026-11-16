@@ -36,7 +36,7 @@ See every widget in the [gallery](docs/gallery.md).
 ## Quick start
 
 ```sh
-pipx install git+https://github.com/OWNER/wigix   # Arch package, source and Docker: see docs/install.md
+pipx install git+https://github.com/shatteredeagle/wigix   # Arch package, source and Docker: see docs/install.md
 wigix init --udev     # prints the udev rule and commands so your user can open the panel
 wigix init            # starter config in ~/.config/wigix/dashboard.yaml
 wigix doctor          # checks everything and tells you how to fix problems

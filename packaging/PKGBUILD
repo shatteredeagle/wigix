@@ -4,7 +4,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc='Linux driver and configurable dashboard for the G.SKILL WigiDash USB touch panel'
 arch=('any')
-url='https://github.com/OWNER/wigix'
+url='https://github.com/shatteredeagle/wigix'
 license=('GPL-3.0-only')
 depends=('python' 'python-pyusb' 'python-pillow' 'python-numpy' 'python-yaml' 'python-psutil'
          'python-requests' 'python-websocket-client' 'python-icalendar'
