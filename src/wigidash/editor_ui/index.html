@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WigiDash editor</title>
+<style>
+:root{--bg:#0d1016;--panel:#161a22;--card:#1f242e;--line:#2c3340;--text:#e8ecf2;--dim:#8a93a3;--accent:#569cff;--ok:#4ad682;--crit:#f05454}
+@media (prefers-color-scheme:light){:root{--bg:#f1f3f7;--panel:#fff;--card:#eef1f6;--line:#d4d9e2;--text:#1b2029;--dim:#68718a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:16px;margin:0 8px 0 0}.spacer{flex:1}
+button,input,select,textarea{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 9px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.danger:hover{border-color:var(--crit);color:var(--crit)}
+main{flex:1;display:grid;grid-template-columns:200px 1fr 300px;min-height:0}
+aside{background:var(--panel);overflow:auto;padding:12px}aside.left{border-right:1px solid var(--line)}aside.right{border-left:1px solid var(--line)}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:6px 0}
+.pal{display:block;width:100%;text-align:left;margin:0 0 6px}.pal small{display:block;color:var(--dim)}
+.stage{padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.tab{padding:4px 12px;border-radius:999px;cursor:pointer;background:var(--card);border:1px solid var(--line)}.tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+#frame{position:relative;width:min(100%,1016px);aspect-ratio:1016/592;background:#000;border:1px solid var(--line);border-radius:8px;overflow:hidden;user-select:none;touch-action:none}
+#frame img{position:absolute;inset:0;width:100%;height:100%;image-rendering:auto;pointer-events:none}
+.cell{position:absolute;border:1px dashed rgba(128,140,160,.25);border-radius:6px}
+.wb{position:absolute;border:2px solid rgba(86,156,255,.55);border-radius:10px;cursor:grab;background:rgba(86,156,255,.06)}
+.wb.sel{border-color:var(--accent);background:rgba(86,156,255,.14)}.wb .lbl{position:absolute;left:6px;bottom:4px;font-size:11px;background:var(--accent);color:#fff;border-radius:4px;padding:0 5px}
+.wb .rz{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;background:var(--accent);border-radius:4px 0 8px 0;cursor:nwse-resize}
+label{display:block;margin:8px 0 2px;color:var(--dim);font-size:12px}input[type=text],input[type=number],select,textarea{width:100%}textarea{min-height:90px;font-family:ui-monospace,monospace;font-size:12px}
+.help{color:var(--dim);font-size:11px;margin-top:2px}#msg{font-size:13px}#msg.err{color:var(--crit)}#msg.ok{color:var(--ok)}
+@media (max-width:900px){main{grid-template-columns:1fr}aside{border:0!important}}
+</style></head><body>
+<header><h1>WigiDash editor</h1>
+ <label style="margin:0">Grid <input id="cols" type="number" min="1" max="8" style="width:56px"> × <input id="rows" type="number" min="1" max="6" style="width:56px"></label>
+ <label style="margin:0">Gap <input id="gap" type="number" min="0" max="40" style="width:56px"></label>
+ <span class="spacer"></span><span id="msg"></span>
+ <button id="reload">Revert</button><button id="save" class="primary">Save &amp; apply</button></header>
+<main>
+ <aside class="left"><h2>Add widget</h2><div id="palette"></div></aside>
+ <section class="stage"><div class="tabs" id="tabs"></div><div id="frame"><img id="img" alt=""></div>
+  <div class="help">Drag a widget to move it, drag its corner to resize. Preview uses live data.</div></section>
+ <aside class="right"><h2>Page</h2><label>Name</label><input id="pname" type="text"><div style="margin-top:8px"><button id="delpage" class="danger">Delete page</button></div>
+  <h2 style="margin-top:18px">Widget</h2><div id="inspector"><div class="help">Select a widget on the preview.</div></div></aside>
+</main>
+<script>
+const FW=1016, FH=592; let cfg, types={}, page=0, sel=null, dirty=false, saved='';
+const $=s=>document.querySelector(s), el=(t,p={},...k)=>{const e=Object.assign(document.createElement(t),p);k.forEach(c=>e.append(c));return e};
+const msg=(t,c='')=>{const m=$('#msg');m.textContent=t;m.className=c};
+const P=()=>cfg.pages[page], grid=()=>Object.assign({cols:4,rows:3,gap:10},P().grid||{});
+function geo(at){const g=grid(),cw=(FW-g.gap*(g.cols+1))/g.cols,ch=(FH-g.gap*(g.rows+1))/g.rows,[c,r,cs,rs]=at;
+ return {x:g.gap+c*(cw+g.gap),y:g.gap+r*(ch+g.gap),w:cs*cw+(cs-1)*g.gap,h:rs*ch+(rs-1)*g.gap,cw,ch,g}}
+const pct=(v,t)=>(100*v/t)+'%';
+function place(e,at){const o=geo(at);Object.assign(e.style,{left:pct(o.x,FW),top:pct(o.y,FH),width:pct(o.w,FW),height:pct(o.h,FH)})}
+function setDirty(){dirty=JSON.stringify(cfg)!==saved;if(dirty)msg('unsaved changes')}
+async function load(){cfg=await (await fetch('/api/config')).json();cfg.pages=cfg.pages||[];if(!cfg.pages.length)cfg.pages.push({name:'Page 1',grid:{cols:4,rows:3,gap:10},widgets:[]});
+ types={};(await (await fetch('/api/widgets')).json()).forEach(t=>types[t.type]=t);saved=JSON.stringify(cfg);page=0;sel=null;buildPalette();render();preview(1.5);msg('')}
+function buildPalette(){const p=$('#palette');p.innerHTML='';Object.values(types).forEach(t=>p.append(el('button',{className:'pal',onclick:()=>addWidget(t.type)},t.type,el('small',{},t.doc.split('\n')[0].slice(0,60)))))}
+function freeSpot(){const g=grid(),used=new Set();P().widgets.forEach(w=>{const[c,r,cs,rs]=w.at||[0,0,1,1];for(let i=0;i<cs;i++)for(let j=0;j<rs;j++)used.add((c+i)+','+(r+j))});
+ for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++)if(!used.has(c+','+r))return[c,r,1,1];return[0,0,1,1]}
+function addWidget(type){const w={type,at:freeSpot()};(types[type].fields||[]).forEach(f=>{if(f.default!==undefined&&f.default!==''&&f.type!=='bool')w[f.name]=f.default});P().widgets.push(w);sel=w;setDirty();render();preview(1.5)}
+function render(){ // tabs, overlay, inspector
+ const tb=$('#tabs');tb.innerHTML='';cfg.pages.forEach((p,i)=>tb.append(el('span',{className:'tab'+(i==page?' on':''),onclick:()=>{page=i;sel=null;render();preview()}},p.name||('Page '+(i+1)))));
+ tb.append(el('button',{onclick:()=>{cfg.pages.push({name:'Page '+(cfg.pages.length+1),grid:{cols:4,rows:3,gap:10},widgets:[]});page=cfg.pages.length-1;sel=null;setDirty();render();preview()}},'+ page'));
+ const g=grid();$('#cols').value=g.cols;$('#rows').value=g.rows;$('#gap').value=g.gap;$('#pname').value=P().name||'';
+ const f=$('#frame');f.querySelectorAll('.cell,.wb').forEach(x=>x.remove());
+ for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++){const d=el('div',{className:'cell'});place(d,[c,r,1,1]);f.append(d)}
+ P().widgets.forEach(w=>{const b=el('div',{className:'wb'+(w===sel?' sel':'')},el('span',{className:'lbl'},w.type),el('span',{className:'rz'}));place(b,w.at||[0,0,1,1]);
+  b.onpointerdown=e=>startDrag(e,w,b);f.append(b)});inspector()}
+function startDrag(e,w,b){e.preventDefault();sel=w;const resize=e.target.classList.contains('rz'),fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,o0=geo(w.at),at0=[...w.at];
+ const sx=e.clientX,sy=e.clientY,g=o0.g,cwp=o0.cw+g.gap,chp=o0.ch+g.gap;
+ const mv=ev=>{const dc=Math.round((ev.clientX-sx)*k/cwp),dr=Math.round((ev.clientY-sy)*k/chp);let[c,r,cs,rs]=at0;
+  if(resize){cs=Math.max(1,Math.min(g.cols-c,cs+dc));rs=Math.max(1,Math.min(g.rows-r,rs+dr))}else{c=Math.max(0,Math.min(g.cols-cs,c+dc));r=Math.max(0,Math.min(g.rows-rs,r+dr))}
+  w.at=[c,r,cs,rs];place(b,w.at)};
+ const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);if(JSON.stringify(at0)!==JSON.stringify(w.at)){setDirty();preview()}render()};
+ addEventListener('pointermove',mv);addEventListener('pointerup',up);render()}
+function inspector(){const box=$('#inspector');box.innerHTML='';if(!sel||!P().widgets.includes(sel)){box.append(el('div',{className:'help'},'Select a widget on the preview.'));return}
+ const t=types[sel.type]||{fields:[],doc:''};box.append(el('div',{className:'help'},t.doc.split('\n')[0]));
+ (t.fields||[]).forEach(f=>{box.append(el('label',{},f.name));let inp,cur=sel[f.name];
+  const chg=v=>{if(v===''||v===undefined)delete sel[f.name];else sel[f.name]=v;setDirty();preview()};
+  if(f.type==='bool'){inp=el('input',{type:'checkbox',checked:!!cur,onchange:e=>chg(e.target.checked)})}
+  else if(f.type==='yaml'){inp=el('textarea',{value:JSON.stringify(cur??f.default??'',null,1),onchange:e=>{try{chg(JSON.parse(e.target.value));msg('')}catch(x){msg('invalid JSON in '+f.name,'err')}}})}
+  else if(f.type==='color'){inp=el('input',{type:'color',value:cur||f.default||'#ffffff',onchange:e=>chg(e.target.value)})}
+  else{const num=f.type==='int'||f.type==='float';inp=el('input',{type:num?'number':'text',value:cur??'',placeholder:f.default??'',step:f.type==='float'?'any':1,
+   onchange:e=>chg(num&&e.target.value!==''?Number(e.target.value):e.target.value)})}
+  box.append(inp);if(f.help)box.append(el('div',{className:'help'},f.help))});
+ box.append(el('label',{},'on tap'));const opts=['','next_page','prev_page',...cfg.pages.map(p=>'page:'+p.name)];
+ const cur=typeof sel.on_tap==='string'?sel.on_tap:sel.on_tap&&sel.on_tap.page?'page:'+sel.on_tap.page:'';
+ box.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else sel.on_tap=v;setDirty()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
+ box.append(el('div',{style:'margin-top:12px'},el('button',{className:'danger',onclick:()=>{P().widgets.splice(P().widgets.indexOf(sel),1);sel=null;setDirty();render();preview()}},'Remove widget')))}
+let pt=null,pseq=0;function preview(wait=0){clearTimeout(pt);pt=setTimeout(async()=>{const my=++pseq;try{const r=await fetch('/api/preview?page='+page+'&wait='+wait,{method:'POST',body:JSON.stringify(cfg)});
+ if(my!==pseq)return;if(!r.ok){msg((await r.json()).error,'err');return}$('#img').src=URL.createObjectURL(await r.blob());if(wait)setTimeout(()=>preview(),1500)}catch(e){msg(String(e),'err')}},180)}
+['cols','rows','gap'].forEach(id=>$('#'+id).onchange=e=>{P().grid=Object.assign(grid(),{[id]:Number(e.target.value)});const g=grid();
+ P().widgets.forEach(w=>{let[c,r,cs,rs]=w.at;c=Math.min(c,g.cols-1);r=Math.min(r,g.rows-1);cs=Math.min(cs,g.cols-c);rs=Math.min(rs,g.rows-r);w.at=[c,r,cs,rs]});setDirty();render();preview()});
+$('#pname').onchange=e=>{P().name=e.target.value;setDirty();render()};
+$('#delpage').onclick=()=>{if(cfg.pages.length<2){msg('need at least one page','err');return}cfg.pages.splice(page,1);page=0;sel=null;setDirty();render();preview()};
+$('#reload').onclick=()=>{if(!dirty||confirm('Discard unsaved changes?'))load()};
+$('#save').onclick=async()=>{const r=await fetch('/api/config',{method:'PUT',body:JSON.stringify(cfg)});const j=await r.json();
+ if(j.ok){saved=JSON.stringify(cfg);dirty=false;msg('saved — the panel reloads within a second','ok')}else msg(j.error,'err')};
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+load();
+</script></body></html>

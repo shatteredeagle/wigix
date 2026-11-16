@@ -7,6 +7,7 @@ from ..render import THEME
 @widget("clock")
 class Clock(Widget):
     """Config: format (strftime, default %H:%M), date_format (default %a %b %d)."""
+    fields = [{"name":"format","type":"string","default":"%H:%M","help":"strftime format"},{"name":"date_format","type":"string","default":"%a %b %d","help":"strftime format for the date line"}]
     interval = 1.0
 
     def draw(self, cv, box):

@@ -37,6 +37,7 @@ def _client(ctx):
 @widget("ha_entity")
 class HAEntity(Widget):
     """One Home Assistant entity as a big number. Config: entity, name (optional), unit (optional)."""
+    fields = [{"name": "entity", "type": "string", "default": "sensor.example"}, {"name": "name", "type": "string", "default": ""}, {"name": "unit", "type": "string", "default": ""}]
     interval = 10.0
     state = None
 
@@ -56,6 +57,7 @@ class HAEntity(Widget):
 @widget("ha_list")
 class HAList(Widget):
     """Several entities as rows. Config: entities: [entity_id | {entity, name}]"""
+    fields = [{"name": "title", "type": "string", "default": ""}, {"name": "entities", "type": "yaml", "default": ["sensor.example"], "help": "list of entity ids"}]
     interval = 10.0
 
     def __init__(self, cfg, ctx):

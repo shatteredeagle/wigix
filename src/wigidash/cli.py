@@ -12,11 +12,19 @@ def main():
     pv = sub.add_parser("preview", help="render page 1 to a PNG, no hardware needed")
     pv.add_argument("-c", "--config", required=True)
     pv.add_argument("-o", "--out", default="preview.png")
+    ed = sub.add_parser("editor", help="open the web editor (the running daemon hot-reloads saved changes)")
+    ed.add_argument("-c", "--config", required=True)
+    ed.add_argument("--host", default="127.0.0.1")
+    ed.add_argument("--port", type=int, default=8765)
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
-    dash = Dashboard(load_config(a.config))
+    if a.cmd == "editor":
+        from .editor import serve
+        serve(a.config, a.host, a.port)
+        return
+    dash = Dashboard(load_config(a.config), a.config)
     if a.cmd == "run":
         try:
             dash.run()

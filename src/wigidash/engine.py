@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import shutil
 import threading
 import time
 
@@ -17,12 +19,23 @@ log = logging.getLogger("wigidash")
 
 
 def load_config(path):
-    with open(path) as f:
+    with open(os.path.expanduser(str(path))) as f:
         return yaml.safe_load(f) or {}
 
 
+def save_config(path, cfg):
+    """Write the config as YAML, keeping the previous version as <path>.bak."""
+    path = os.path.expanduser(str(path))
+    if os.path.exists(path):
+        shutil.copyfile(path, path + ".bak")
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=None, width=100)
+    os.replace(tmp, path)
+
+
 class Page:
-    def __init__(self, cfg, ctx):
+    def __init__(self, cfg, ctx, factory=None):
         self.name = cfg.get("name", "page")
         g = cfg.get("grid", {})
         self.cols, self.rows, self.gap = g.get("cols", 4), g.get("rows", 3), g.get("gap", 10)
@@ -31,7 +44,8 @@ class Page:
             cls = widgets.REGISTRY.get(w["type"])
             if cls is None:
                 raise SystemExit(f"unknown widget type {w['type']!r}; known: {sorted(widgets.REGISTRY)}")
-            self.items.append((cls(w, ctx), w.get("at", [0, 0, 1, 1])))
+            make = factory or (lambda c, wc, x: c(wc, x))
+            self.items.append((make(cls, w, ctx), w.get("at", [0, 0, 1, 1])))
 
     def box(self, at):
         col, row, cs, rs = at
@@ -61,28 +75,61 @@ class Page:
 
 
 class Dashboard:
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, path=None):
         widgets.load_plugins(cfg.get("plugin_dirs", []))
+        self.path = path
+        self._mtime = os.path.getmtime(os.path.expanduser(str(path))) if path else 0
         self.cfg = cfg
         self.ctx = dict(cfg)
-        self.pages = [Page(p, self.ctx) for p in cfg.get("pages", [])]
-        if not self.pages:
-            raise SystemExit("config has no pages")
+        self.pages = self._build_pages(cfg, self.ctx)
         self.page_idx = 0
         self.dev = None
         self._wake = threading.Event()   # set to redraw immediately
         self._last_action = 0.0
         self._stop = threading.Event()
 
+    @staticmethod
+    def _build_pages(cfg, ctx):
+        pages = [Page(p, ctx) for p in cfg.get("pages", [])]
+        if not pages:
+            raise ValueError("config has no pages")
+        return pages
+
+    def reload(self, cfg: dict):
+        """Swap in a new config without touching the device. Raises (and keeps the old one) on errors."""
+        widgets.load_plugins(cfg.get("plugin_dirs", []))
+        ctx = dict(cfg)
+        pages = self._build_pages(cfg, ctx)
+        old = self.pages
+        self.cfg, self.ctx, self.pages = cfg, ctx, pages
+        self.page_idx = min(self.page_idx, len(pages) - 1)
+        for page in old:
+            for w, _ in page.items:
+                w._halt = True
+        self.start_workers()
+        self._wake.set()
+
+    def _check_reload(self):
+        if not self.path:
+            return
+        try:
+            m = os.path.getmtime(os.path.expanduser(str(self.path)))
+            if m != self._mtime:
+                self._mtime = m
+                self.reload(load_config(self.path))
+                log.info("config reloaded")
+        except Exception:
+            log.exception("config reload failed; keeping previous config")
+
     def _worker(self, w):
-        while not self._stop.is_set():
+        while not self._stop.is_set() and not getattr(w, "_halt", False):
             try:
                 w.update()
                 w.error = None
             except Exception as e:
                 w.error = str(e)
                 log.debug("update failed: %s: %s", w.type_name, e)
-            self._stop.wait(w.interval)
+            self._stop.wait(min(w.interval, 1.0) if getattr(w, "_halt", False) else w.interval)
 
     def start_workers(self):
         for page in self.pages:
@@ -174,12 +221,17 @@ class Dashboard:
     def run(self):
         self.start_workers()
         threading.Thread(target=self._touch_loop, daemon=True).start()
+        ecfg = self.cfg.get("editor")
+        if ecfg and self.path:
+            from .editor import serve
+            serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False)
         fps = float(self.cfg.get("fps", 2))
         rotate = float(self.cfg.get("page_seconds", 0))
         last_flip = time.time()
         dev, last_hash, last_sent = None, None, 0.0
         while True:
             t0 = time.time()
+            self._check_reload()
             if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
                 self.page_idx += 1
                 last_flip = t0

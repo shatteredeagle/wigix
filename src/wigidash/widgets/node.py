@@ -24,6 +24,7 @@ def parse_prom(text):
 @widget("node")
 class Node(Widget):
     """A remote machine via Prometheus node_exporter. Config: url (e.g. http://tower.lan:9100/metrics), name."""
+    fields = [{"name":"name","type":"string","default":""},{"name":"url","type":"string","default":"http://host:9100/metrics","help":"node_exporter metrics URL"}]
     interval = 3.0
 
     def __init__(self, cfg, ctx):

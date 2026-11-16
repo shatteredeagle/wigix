@@ -16,6 +16,7 @@ class Proxmox(Widget):
     Config: url (https://host:8006), node, token_id (user@realm!name), token / token_file / $PVE_TOKEN,
     verify (default false: PVE ships a self-signed cert). Read-only calls only; PVEAuditor is enough.
     """
+    fields = [{"name":"name","type":"string","default":""},{"name":"url","type":"string","default":"https://pve:8006"},{"name":"node","type":"string","default":"pve"},{"name":"token_id","type":"string","default":"user@pam!name"},{"name":"token_file","type":"string","default":"~/.config/wigidash/pve_token","help":"file holding the API token secret"},{"name":"verify","type":"bool","default":False,"help":"verify TLS certificate"}]
     interval = 5.0
 
     def __init__(self, cfg, ctx):

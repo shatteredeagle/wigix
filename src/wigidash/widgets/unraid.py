@@ -15,6 +15,7 @@ class Unraid(Widget):
 
     Config: url (https://host/graphql), api_key / api_key_file / $UNRAID_API_KEY, verify (default false).
     """
+    fields = [{"name":"name","type":"string","default":"Unraid"},{"name":"url","type":"string","default":"https://tower/graphql"},{"name":"api_key_file","type":"string","default":"~/.config/wigidash/unraid_key","help":"file holding the API key"},{"name":"verify","type":"bool","default":False}]
     interval = 5.0
     data = None
 

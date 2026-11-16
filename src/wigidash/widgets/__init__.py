@@ -26,6 +26,7 @@ def widget(name: str):
 
 class Widget:
     interval = 2.0  # seconds between update() calls
+    fields: list = []  # config schema for the editor: [{name, type: string|int|float|bool|color|yaml, default, help}]
 
     def __init__(self, cfg: dict, ctx: dict):
         self.cfg = cfg

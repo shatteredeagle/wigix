@@ -10,6 +10,7 @@ from ..render import THEME, level_color
 @widget("system")
 class System(Widget):
     """btop-style stats for THIS machine: CPU, memory, disk, network. Config: disk (path, default /)."""
+    fields = [{"name":"title","type":"string","default":"","help":"defaults to the hostname"},{"name":"disk","type":"string","default":"/","help":"mount point for the DSK bar"}]
     interval = 1.0
 
     def __init__(self, cfg, ctx):

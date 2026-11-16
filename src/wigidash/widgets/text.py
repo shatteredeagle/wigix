@@ -5,6 +5,7 @@ from ..render import THEME
 @widget("text")
 class Text(Widget):
     """Config: text, size (default 28), color (hex)."""
+    fields = [{"name":"text","type":"string","default":"","help":"text to show"},{"name":"size","type":"int","default":28},{"name":"color","type":"color","default":"#e8ecf2"},{"name":"title","type":"string","default":""}]
     interval = 3600
 
     def draw(self, cv, box):

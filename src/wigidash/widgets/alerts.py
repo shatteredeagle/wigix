@@ -10,6 +10,7 @@ from ..render import THEME
 @widget("checks")
 class Checks(Widget):
     """Service up/down board. Config: checks: [{name, http: url} | {name, tcp: "host:port"}], timeout."""
+    fields = [{"name": "title", "type": "string", "default": "Services"}, {"name": "checks", "type": "yaml", "default": [{"name": "Example", "http": "https://example.com"}], "help": "list of {name, http|tcp}"}, {"name": "timeout", "type": "float", "default": 3}]
     interval = 15.0
 
     def __init__(self, cfg, ctx):
