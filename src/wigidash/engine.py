@@ -42,6 +42,13 @@ class Page:
         y0 = gap + row * (ch + gap)
         return (int(x0), int(y0), int(x0 + cs * cw + (cs - 1) * gap), int(y0 + rs * ch + (rs - 1) * gap))
 
+    def hit(self, x, y):
+        for w, at in self.items:
+            x0, y0, x1, y1 = self.box(at)
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                return w
+        return None
+
     def render(self) -> Image.Image:
         img = Image.new("RGB", (W, H), THEME["bg"])
         cv = Canvas(ImageDraw.Draw(img))
@@ -62,6 +69,9 @@ class Dashboard:
         if not self.pages:
             raise SystemExit("config has no pages")
         self.page_idx = 0
+        self.dev = None
+        self._wake = threading.Event()   # set to redraw immediately
+        self._last_action = 0.0
         self._stop = threading.Event()
 
     def _worker(self, w):
@@ -79,6 +89,73 @@ class Dashboard:
             for w, _ in page.items:
                 threading.Thread(target=self._worker, args=(w,), daemon=True).start()
 
+    # --- touch -------------------------------------------------------------------------------
+    SWIPE_PX, TAP_PX, TAP_SECS = 140, 30, 1.0
+
+    def goto(self, target):
+        self._wake.set()
+        if target == "next_page":
+            self.page_idx += 1
+        elif target == "prev_page":
+            self.page_idx -= 1
+        else:
+            for i, p in enumerate(self.pages):
+                if p.name == target:
+                    self.page_idx = i
+
+    def handle_tap(self, x, y):
+        now = time.time()
+        if now - self._last_action < 0.35:   # debounce contact bounce
+            return
+        self._last_action = now
+        w = self.current().hit(x, y)
+        if w is None:
+            return
+        log.debug("tap on %s at %d,%d", w.type_name, x, y)
+        try:
+            if w.on_tap(x, y):
+                return
+            act = w.cfg.get("on_tap")
+            if isinstance(act, str):
+                self.goto(act)
+            elif isinstance(act, dict) and "page" in act:
+                self.goto(act["page"])
+            elif isinstance(act, dict) and "ha_service" in act:
+                from .widgets.ha import _client
+                domain, service = act["ha_service"].split(".", 1)
+                _client(self.ctx).call_service(domain, service, {"entity_id": act["entity"]})
+        except Exception:
+            log.exception("tap action failed")
+
+    def _touch_loop(self):
+        start = None
+        while not self._stop.is_set():
+            dev = self.dev
+            if dev is None:
+                time.sleep(0.2)
+                continue
+            try:
+                t = dev.touch()
+            except Exception:
+                time.sleep(0.2)
+                continue
+            if t is None:
+                time.sleep(0.016)
+                continue
+            if t.down:
+                if start is None:
+                    start = (t.x, t.y, time.time())
+                last = (t.x, t.y)
+            elif start is not None:
+                dx, dy, dt = last[0] - start[0], last[1] - start[1], time.time() - start[2]
+                if abs(dx) > self.SWIPE_PX and abs(dx) > 2 * abs(dy) and self.cfg.get("swipe", True):
+                    self._last_action = time.time()
+                    self.goto("next_page" if dx < 0 else "prev_page")
+                elif abs(dx) < self.TAP_PX and abs(dy) < self.TAP_PX and dt < self.TAP_SECS:
+                    self.handle_tap(*start[:2])
+                start = None
+            time.sleep(0.008)
+
     def current(self) -> Page:
         return self.pages[self.page_idx % len(self.pages)]
 
@@ -91,6 +168,7 @@ class Dashboard:
 
     def run(self):
         self.start_workers()
+        threading.Thread(target=self._touch_loop, daemon=True).start()
         fps = float(self.cfg.get("fps", 2))
         rotate = float(self.cfg.get("page_seconds", 0))
         last_flip = time.time()
@@ -105,13 +183,14 @@ class Dashboard:
             if h != last_hash or t0 - last_sent > 5:
                 try:
                     if dev is None:
-                        dev = WigiDash()
-                        log.info("WigiDash connected")
+                        dev = self.dev = WigiDash()
+                        log.info("WigiDash connected: %s", dev.info())
                     dev.show(frame)
                     last_hash, last_sent = h, t0
                 except Exception as e:
                     if dev is not None:
                         log.warning("device error (%s); will reconnect", e)
-                    dev = None
+                    dev = self.dev = None
                     time.sleep(2)
-            time.sleep(max(0.0, 1.0 / fps - (time.time() - t0)))
+            self._wake.wait(max(0.0, 1.0 / fps - (time.time() - t0)))
+            self._wake.clear()

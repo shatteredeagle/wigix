@@ -18,6 +18,10 @@ class HAClient:
         self.s = requests.Session()
         self.s.headers["Authorization"] = f"Bearer {token}"
 
+    def call_service(self, domain, service, data):
+        r = self.s.post(f"{self.url}/api/services/{domain}/{service}", json=data, timeout=5)
+        r.raise_for_status()
+
     def state(self, entity_id):
         r = self.s.get(f"{self.url}/api/states/{entity_id}", timeout=4)
         r.raise_for_status()

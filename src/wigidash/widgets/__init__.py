@@ -38,6 +38,11 @@ class Widget:
     def draw(self, cv, box) -> None:
         raise NotImplementedError
 
+    def on_tap(self, x: int, y: int) -> bool:
+        """Called when the widget is tapped (screen coords). Return True if handled; otherwise the
+        widget's YAML ``on_tap`` action (next_page, prev_page, {page: name}, {ha_service, entity}) runs."""
+        return False
+
     @property
     def title(self):
         return self.cfg.get("title")
