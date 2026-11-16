@@ -10,21 +10,42 @@ import io
 import json
 import logging
 import pathlib
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from PIL import Image, ImageDraw
+import yaml
+from PIL import Image
 
 from . import widgets
-from .integrations import Registry
+from .integrations import REGISTRY as INTEGRATIONS, Registry, load_builtin, normalize
+from .integrations.schemas import fields_for, inline_secret_keys
 from .device import H, W
 from .engine import Dashboard, Page, load_config, save_config
-from .render import THEME, Canvas
+from .render import THEME, parse_color, theme_override
 
 log = logging.getLogger("wigix.editor")
 UI = pathlib.Path(__file__).with_name("editor_ui")
+
+# The theme keys and their built-in values (mirrors render._BASE_THEME, which set_theme() mutates at runtime).
+DEFAULT_THEME = {"bg": "#0a0c10", "card": "#1c2028", "text": "#e8ecf2", "dim": "#808896",
+                 "ok": "#4ad682", "warn": "#f5be3c", "crit": "#f05454", "accent": "#569cff"}
+
+
+def _path_like(v: str) -> bool:
+    return v[0] in "~.$/" or "/" in v or "\\" in v
+
+
+def build_registry(cfg, reuse=None) -> Registry:
+    """Registry(cfg), with a missing required setting reported by integration name instead of a bare KeyError."""
+    names = list(normalize(cfg))
+    try:
+        return Registry(cfg, reuse=reuse)
+    except KeyError as e:
+        raise ValueError(f"an integration is missing the setting {e.args[0]!r} (integrations: {', '.join(names)}); "
+                         "fill it in on the Integrations panel") from None
 
 
 class PreviewCache:
@@ -79,7 +100,7 @@ class Editor:
         key = json.dumps(normalize(cfg), sort_keys=True, default=str)
         if key != self._reg_key:
             old = self._reg
-            self._reg = Registry(cfg, reuse=old)
+            self._reg = build_registry(cfg, old)
             self._reg.start()
             if old:
                 old.stop(keep=self._reg)
@@ -95,7 +116,80 @@ class Editor:
         return [{"type": k, "doc": (v.__doc__ or "").strip(), "fields": v.fields}
                 for k, v in sorted(widgets.REGISTRY.items())]
 
-    def validate(self, cfg):
+    def integration_types(self):
+        load_builtin()
+        def doc(cls):   # most integrations document themselves in the module docstring
+            return (cls.__doc__ or sys.modules[cls.__module__].__doc__ or "").strip()
+        return [{"type": k, "doc": doc(v), "fields": fields_for(k)} for k, v in sorted(INTEGRATIONS.items())]
+
+    def meta(self, cfg):
+        """Static facts the UI needs: theme defaults and the read-only editor/host settings."""
+        return {"theme": DEFAULT_THEME, "editor": cfg.get("editor") or {}, "path": str(self.path)}
+
+    def status(self):
+        """Live integration state when the editor runs inside the daemon; otherwise ``running: false``."""
+        d = self.dash
+        if d is None:
+            return {"running": False, "message": "not running (standalone editor)", "integrations": {}}
+        out = {}
+        for name, i in dict(d.integrations.items).items():
+            try:
+                st = i.status() or {}
+            except Exception as e:
+                st = {"connected": False, "error": str(e)}
+            st = {k: v for k, v in st.items() if isinstance(v, (bool, int, float, str, type(None)))}
+            if isinstance(st.get("error"), str):
+                st["error"] = st["error"][:200]
+            out[name] = {"type": getattr(i, "type_name", ""), **st}
+        return {"running": True, "page": d.page_idx % len(d.pages), "page_name": d.current().name, "integrations": out}
+
+    def check(self, cfg):
+        """Raise ValueError when the config cannot be used; return a list of non-fatal warnings."""
+        if not isinstance(cfg, dict):
+            raise ValueError("the config must be a mapping")
+        load_builtin()
+        warnings = []
+        integrations = cfg.get("integrations") or {}
+        if not isinstance(integrations, dict):
+            raise ValueError("`integrations:` must be a mapping of name -> settings")
+        for name, ic in integrations.items():
+            if not isinstance(ic, dict):
+                raise ValueError(f"integration {name!r} must be a mapping with a `type:`")
+            t = ic.get("type")
+            if t not in INTEGRATIONS:
+                raise ValueError(f"integration {name!r}: unknown type {t!r}; known: {sorted(INTEGRATIONS)}")
+            for f in fields_for(t):
+                if f.get("required") and ic.get(f["name"]) in (None, "") and not (
+                        f.get("secret") and ic.get(f["name"][:-5])):
+                    warnings.append(f"integration {name!r}: {f['name']} is empty")
+            for f in fields_for(t):
+                v = ic.get(f["name"])
+                if f.get("secret") and isinstance(v, str) and v and not _path_like(v):
+                    raise ValueError(f"integration {name!r}: {f['name']} must be the path of a file that holds the secret "
+                                     f"(for example ~/.config/wigix/{name}_secret), not the secret itself")
+            for inline, file_key in inline_secret_keys(t).items():
+                if ic.get(inline):
+                    warnings.append(f"integration {name!r}: inline `{inline}` stores a secret in the config file; "
+                                    f"use `{file_key}` (a path to a 0600 file) instead")
+        names = sorted(normalize(cfg))
+        try:
+            build_registry(cfg)          # nothing is started: this only catches incomplete settings
+        except ValueError:
+            raise
+        except Exception:
+            pass                         # e.g. a secret file that only exists on the panel's machine
+        for k, v in (cfg.get("theme") or {}).items():
+            if k not in DEFAULT_THEME:
+                raise ValueError(f"theme: unknown color {k!r}; known: {sorted(DEFAULT_THEME)}")
+            if parse_color(v) is None:
+                raise ValueError(f"theme.{k}: {v!r} is not a color (use #rrggbb)")
+        if "fps" in cfg and not (isinstance(cfg["fps"], (int, float)) and not isinstance(cfg["fps"], bool)
+                                 and 0 < cfg["fps"] <= Dashboard.MAX_FPS):
+            raise ValueError(f"fps must be a number between 0 and {Dashboard.MAX_FPS:g}")
+        if "brightness" in cfg and not (isinstance(cfg["brightness"], (int, float)) and 0 <= cfg["brightness"] <= 100):
+            raise ValueError("brightness must be a number from 0 to 100")
+        if not isinstance(cfg.get("security") or {}, dict):
+            raise ValueError("`security:` must be a mapping")
         Dashboard._build_pages(cfg, dict(cfg))   # raises on unknown widget types / bad config
         for p in cfg["pages"]:
             g = p.get("grid", {})
@@ -103,10 +197,38 @@ class Editor:
                 c, r, cs, rs = w.get("at", [0, 0, 1, 1])
                 if c < 0 or r < 0 or c + cs > g.get("cols", 4) or r + rs > g.get("rows", 3):
                     raise ValueError(f"widget {w['type']} on page {p.get('name')} is outside the grid")
+                ref = w.get("integration")
+                if ref and ref not in names:
+                    raise ValueError(
+                        f"widget {w['type']} on page {p.get('name')} uses integration {ref!r}, which is not defined; "
+                        f"{'defined: ' + ', '.join(names) if names else 'there are none yet'} (add it in the Integrations panel)")
+        return warnings
+
+    def validate(self, cfg):
+        self.check(cfg)
+
+    def validate_yaml(self, text):
+        """Parse raw YAML and check it. Returns {ok, error, line, warnings, config}; never echoes file content."""
+        try:
+            cfg = yaml.safe_load(text) or {}
+        except yaml.YAMLError as e:
+            mark = getattr(e, "problem_mark", None)
+            msg = " ".join(x for x in (getattr(e, "context", None), getattr(e, "problem", None)) if x) or "invalid YAML"
+            return {"ok": False, "error": msg, "line": mark.line + 1 if mark else None, "column": mark.column + 1 if mark else None}
+        try:
+            return {"ok": True, "warnings": self.check(cfg), "config": cfg}
+        except Exception as e:
+            return {"ok": False, "error": str(e), "line": None, "config": cfg if isinstance(cfg, dict) else None}
+
+    def to_yaml(self, cfg):
+        buf = io.StringIO()
+        yaml.safe_dump(cfg, buf, sort_keys=False, default_flow_style=None, width=100)
+        return buf.getvalue()
 
     def save(self, cfg):
-        self.validate(cfg)
+        warnings = self.check(cfg)
         save_config(self.path, cfg)
+        return warnings
 
     def render(self, cfg, page_idx, wait=0.0):
         pages = cfg.get("pages", [])
@@ -117,7 +239,8 @@ class Editor:
                     factory=lambda cls, wc, x: self.cache.widget(cls, wc, x))
         if wait:
             time.sleep(wait)
-        return page.render()
+        with theme_override(cfg.get("theme")):     # the preview shows the edited theme, not the daemon's
+            return page.render()
 
 
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
@@ -169,6 +292,12 @@ def make_handler(ed: Editor, extra_hosts=()):
                 self._send(200, load_config(ed.path))
             elif u.path == "/api/widgets":
                 self._send(200, ed.widget_types())
+            elif u.path == "/api/integration-types":
+                self._send(200, ed.integration_types())
+            elif u.path == "/api/meta":
+                self._send(200, ed.meta(load_config(ed.path)))
+            elif u.path == "/api/status":
+                self._send(200, ed.status())
             elif u.path == "/api/entities":
                 try:
                     q = parse_qs(u.query)
@@ -178,14 +307,28 @@ def make_handler(ed: Editor, extra_hosts=()):
             else:
                 self._send(404, {"error": "not found"})
 
+        def _validate(self):
+            """{"yaml": text} -> parsed+checked config; {"config": {...}} -> checked config plus its YAML text."""
+            try:
+                body = self._json()
+                if "yaml" in body:
+                    return self._send(200, ed.validate_yaml(str(body["yaml"])))
+                cfg = body.get("config")
+                try:
+                    self._send(200, {"ok": True, "warnings": ed.check(cfg), "yaml": ed.to_yaml(cfg)})
+                except Exception as e:
+                    self._send(200, {"ok": False, "error": str(e), "line": None,
+                                     "yaml": ed.to_yaml(cfg) if isinstance(cfg, dict) else ""})
+            except Exception as e:
+                self._send(400, {"ok": False, "error": str(e)})
+
         def do_PUT(self):
             if not self._guard(True):
                 return
             if urlparse(self.path).path != "/api/config":
                 return self._send(404, {"error": "not found"})
             try:
-                ed.save(self._json())
-                self._send(200, {"ok": True})
+                self._send(200, {"ok": True, "warnings": ed.save(self._json())})
             except Exception as e:
                 self._send(400, {"ok": False, "error": str(e)})
 
@@ -193,6 +336,8 @@ def make_handler(ed: Editor, extra_hosts=()):
             if not self._guard(True):
                 return
             u = urlparse(self.path)
+            if u.path == "/api/validate":
+                return self._validate()
             if u.path != "/api/preview":
                 return self._send(404, {"error": "not found"})
             try:
