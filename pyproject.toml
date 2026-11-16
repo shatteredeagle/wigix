@@ -26,3 +26,6 @@ wigix = ["editor_ui/*", "tray_icons/*.png"]
 [project.optional-dependencies]
 dev = ["pytest", "websockets"]
 tray = ["PyQt6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
