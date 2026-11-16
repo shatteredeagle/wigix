@@ -35,8 +35,9 @@ class Checks(Widget):
     def draw(self, cv, box):
         down = sum(1 for _, ok in self.results if ok is False)
         x0, y0, x1, y1 = cv.card(box, self.title or "Services")
-        cv.text((x1, box[1] + 8), f"{down} down" if down else "all up", size=18,
-                color=THEME["crit"] if down else THEME["ok"], anchor="ra")
+        pending = any(ok is None for _, ok in self.results)
+        cv.text((x1, box[1] + 8), "checking" if pending else f"{down} down" if down else "all up", size=18,
+                color=THEME["dim"] if pending else THEME["crit"] if down else THEME["ok"], anchor="ra")
         h = 30
         cols = 2 if len(self.results) * h > (y1 - y0) else 1
         per = (y1 - y0) // h

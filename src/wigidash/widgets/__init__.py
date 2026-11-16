@@ -45,7 +45,7 @@ class Widget:
 
 def load_plugins(extra_dirs=()):
     """Import built-ins, third-party entry points (group ``wigidash.widgets``), and *.py in extra_dirs."""
-    for mod in ("system", "clock", "text", "node", "ha", "alerts"):
+    for mod in ("system", "clock", "text", "node", "ha", "alerts", "proxmox", "unraid"):
         importlib.import_module(f"{__name__}.{mod}")
     for ep in importlib.metadata.entry_points(group="wigidash.widgets"):
         try:

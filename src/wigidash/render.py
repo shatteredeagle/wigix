@@ -76,3 +76,13 @@ class Canvas:
         pts = [(x0 + (x1 - x0) * i / (len(vals) - 1),
                 y1 - (y1 - y0) * min(v, top) / top) for i, v in enumerate(vals)]
         self.d.line(pts, fill=color or THEME["accent"], width=2)
+
+
+def read_secret(value=None, file=None, env=None):
+    """Resolve a secret from an inline value, a file (stripped), or an environment variable."""
+    import os
+    if value:
+        return value
+    if file:
+        return open(os.path.expanduser(file)).read().strip()
+    return os.environ.get(env or "", "")
