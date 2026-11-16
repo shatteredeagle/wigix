@@ -14,7 +14,8 @@ optdepends=('playerctl: media_player widget'
             'ffmpeg: video and camera widgets'
             'libpulse: audio_visualizer widget (parec)'
             'wtype: key actions on Wayland'
-            'xdotool: key actions on X11')
+            'xdotool: key actions on X11'
+            'python-pyqt6: tray icon')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')  # replace with the real checksum for a tagged release
 

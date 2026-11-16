@@ -51,7 +51,11 @@ def main():
     it.add_argument("--force", action="store_true", help="overwrite existing files (config keeps a .bak)")
     it.add_argument("--udev", action="store_true", help="print the udev rule and the commands to install it")
     it.add_argument("--systemd", action="store_true", help="install the systemd user unit")
+    it.add_argument("--tray", action="store_true", help="install the tray autostart entry (~/.config/autostart)")
     it.add_argument("--enable", action="store_true", help="with --systemd: also enable and start it")
+    tr = sub.add_parser("tray", help="system tray icon for the running daemon (needs PyQt6: pip install 'wigix[tray]')")
+    tr.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
+    tr.add_argument("--quiet", action="store_true", help="no desktop notifications when the state turns bad")
     sub.add_parser("devices", help="list matching USB devices")
     ur = sub.add_parser("url", help="print the web editor's access link (contains a secret token)")
     ur.add_argument("-c", "--config", default=str(DEFAULT_CONFIG))
@@ -64,7 +68,10 @@ def main():
         sys.exit(doctor(a.config, a.json))
     if a.cmd == "init":
         from .init import run as init
-        sys.exit(init(a.out, a.force, a.udev, a.systemd, a.enable))
+        sys.exit(init(a.out, a.force, a.udev, a.systemd, a.enable, a.tray))
+    if a.cmd == "tray":
+        from .tray import main as tray
+        sys.exit(tray(a.config, a.quiet))
     if a.cmd == "devices":
         sys.exit(_devices())
     if a.cmd == "url":

@@ -29,6 +29,7 @@ smart home, and lay it all out in a browser editor.**
   a widget (for example a doorbell camera).
 - **Themes**: change the colors for the whole dashboard or for a single widget.
 - **Plugins**: a new widget or integration is one Python file ([docs/writing-plugins.md](docs/writing-plugins.md)).
+- **Tray icon** (`wigix tray`): panel state at a glance, switch pages, set brightness, pause ([docs/tray.md](docs/tray.md)).
 - **Brightness** and **fullscreen** per config; modest on the CPU (frames are only sent when something changed).
 
 See every widget in the [gallery](docs/gallery.md).
@@ -86,6 +87,7 @@ A complete example is in [examples/dashboard.yaml](examples/dashboard.yaml).
 
 - [Install and first run](docs/install.md) and [Troubleshooting](docs/troubleshooting.md)
 - [Widget gallery](docs/gallery.md) and [the web editor](docs/editor.md)
+- [System tray icon](docs/tray.md)
 - [Splash, screensaver and popups](docs/overlays.md)
 - [Home Assistant](docs/home-assistant.md), [monitoring integrations](docs/integrations-monitoring.md),
   [network and personal integrations](docs/integrations-network.md)

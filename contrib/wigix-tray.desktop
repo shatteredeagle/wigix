@@ -1,0 +1,11 @@
+# Autostart entry for the tray icon. `wigix init --tray` installs one with the right Exec for your install.
+# By hand: cp contrib/wigix-tray.desktop ~/.config/autostart/
+[Desktop Entry]
+Type=Application
+Name=wigix tray
+Comment=System tray icon for the wigix dashboard
+Exec=wigix tray
+Icon=wigix
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -1,4 +1,4 @@
-"""`wigix init`: starter config, udev rule and systemd user unit."""
+"""`wigix init`: starter config, udev rule, systemd user unit and tray autostart entry."""
 from __future__ import annotations
 
 import shutil
@@ -8,6 +8,7 @@ from pathlib import Path
 
 DEFAULT_CONFIG = Path("~/.config/wigix/dashboard.yaml").expanduser()
 UNIT_DIR = Path("~/.config/systemd/user").expanduser()
+AUTOSTART_DIR = Path("~/.config/autostart").expanduser()
 UDEV_PATH = "/etc/udev/rules.d/70-wigix.rules"
 
 UDEV_RULE = '''\
@@ -119,6 +120,32 @@ def install_unit(unit_dir: Path = UNIT_DIR, force: bool = False) -> Path:
     return path
 
 
+def tray_desktop_text() -> str:
+    """The autostart entry (contrib/wigix-tray.desktop), with Exec pointing at this install."""
+    exe = shutil.which("wigix")
+    cmd = f'"{exe}" tray' if exe else f'"{sys.executable}" -m wigix.cli tray'
+    return f"""\
+[Desktop Entry]
+Type=Application
+Name=wigix tray
+Comment=System tray icon for the wigix dashboard
+Exec={cmd}
+Icon=wigix
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+"""
+
+
+def install_tray_autostart(autostart_dir: Path = AUTOSTART_DIR, force: bool = False) -> Path:
+    path = Path(autostart_dir) / "wigix-tray.desktop"
+    if path.exists() and not force:
+        raise FileExistsError(f"{path} already exists; use --force to replace it")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(tray_desktop_text())
+    return path
+
+
 def enable_unit() -> int:
     """Reload systemd and enable --now the user unit. Returns the exit status."""
     for cmd in (["systemctl", "--user", "daemon-reload"], ["systemctl", "--user", "enable", "--now", "wigix"]):
@@ -132,13 +159,13 @@ def enable_unit() -> int:
     return 0
 
 
-def run(out=None, force=False, udev=False, systemd=False, enable=False) -> int:
+def run(out=None, force=False, udev=False, systemd=False, enable=False, tray=False) -> int:
     """Entry point for the CLI. Returns the process exit status.
 
     With no flags it writes the starter config. ``--udev`` / ``--systemd`` / ``--enable`` add their steps;
     the config is then only written if it does not exist yet (or ``--out`` / ``--force`` was given).
     """
-    extras = udev or systemd or enable
+    extras = udev or systemd or enable or tray
     if udev:
         print(udev_instructions())
     if systemd or enable:
@@ -150,6 +177,13 @@ def run(out=None, force=False, udev=False, systemd=False, enable=False) -> int:
         if not enable:
             print("start it at login with:\n  systemctl --user daemon-reload\n"
                   "  systemctl --user enable --now wigix")
+    if tray:
+        try:
+            print(f"installed {install_tray_autostart(force=force)} (the tray starts at your next login; "
+                  "needs `pip install 'wigix[tray]'`)")
+        except FileExistsError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
     target = Path(out).expanduser() if out else DEFAULT_CONFIG
     if extras and not out and not force and target.exists():
         print(f"keeping existing {target}")

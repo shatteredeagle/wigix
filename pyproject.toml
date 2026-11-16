@@ -21,7 +21,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-wigix = ["editor_ui/*"]
+wigix = ["editor_ui/*", "tray_icons/*.png"]
 
 [project.optional-dependencies]
 dev = ["pytest", "websockets"]
