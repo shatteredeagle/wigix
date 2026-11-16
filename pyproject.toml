@@ -8,7 +8,7 @@ classifiers = ["Development Status :: 3 - Alpha", "Operating System :: POSIX :: 
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.10"
 dependencies = ["pyusb", "pillow", "numpy", "pyyaml", "psutil", "requests", "websocket-client",
-                "icalendar>=6", "recurring-ical-events>=3"]
+                "icalendar>=6", "recurring-ical-events>=3", "paho-mqtt>=2"]
 
 [project.scripts]
 wigix = "wigix.cli:main"
