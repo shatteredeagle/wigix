@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import pkgutil
 
 log = logging.getLogger("wigidash")
 REGISTRY: dict[str, type] = {}
@@ -37,7 +38,8 @@ class Integration:
 
 
 def load_builtin():
-    importlib.import_module(f"{__name__}.home_assistant")
+    for m in pkgutil.iter_modules(__path__):          # every module in this package registers its integrations
+        importlib.import_module(f"{__name__}.{m.name}")
 
 
 def normalize(cfg: dict) -> dict[str, dict]:
