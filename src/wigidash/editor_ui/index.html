@@ -39,7 +39,7 @@ label{display:block;margin:8px 0 2px;color:var(--dim);font-size:12px}input[type=
   <h2 style="margin-top:18px">Widget</h2><div id="inspector"><div class="help">Select a widget on the preview.</div></div></aside>
 </main>
 <script>
-const FW=1016, FH=592; let cfg, types={}, page=0, sel=null, dirty=false, saved='';
+const FW=1016, FH=592, XRW={'X-Requested-With':'wigidash'}; let cfg, types={}, page=0, sel=null, dirty=false, saved='';
 const $=s=>document.querySelector(s), el=(t,p={},...k)=>{const e=Object.assign(document.createElement(t),p);k.forEach(c=>e.append(c));return e};
 const msg=(t,c='')=>{const m=$('#msg');m.textContent=t;m.className=c};
 const P=()=>cfg.pages[page], grid=()=>Object.assign({cols:4,rows:3,gap:10},P().grid||{});
@@ -81,23 +81,26 @@ function inspector(){const box=$('#inspector');box.innerHTML='';if(!sel||!P().wi
   else{const num=f.type==='int'||f.type==='float';inp=el('input',{type:num?'number':'text',value:cur??'',placeholder:f.default??'',step:f.type==='float'?'any':1,
    onchange:e=>chg(num&&e.target.value!==''?Number(e.target.value):e.target.value)})}
   box.append(inp);if(f.help)box.append(el('div',{className:'help'},f.help))});
- box.append(el('label',{},'on tap'));const opts=['','next_page','prev_page',...cfg.pages.map(p=>'page:'+p.name)];
- const cur=typeof sel.on_tap==='string'?sel.on_tap:sel.on_tap&&sel.on_tap.page?'page:'+sel.on_tap.page:'';
- box.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else sel.on_tap=v;setDirty()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
+ box.append(el('label',{},'on tap'));const opts=['','next_page','prev_page','fullscreen',...cfg.pages.map(p=>'page:'+p.name),'custom (JSON)'];
+ const ot=sel.on_tap,simple=typeof ot==='string'?ot:ot&&ot.page&&Object.keys(ot).length===1?'page:'+ot.page:null;
+ const cur=ot===undefined?'':simple!==null&&opts.includes(simple)?simple:'custom (JSON)';
+ box.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else if(v==='custom (JSON)')sel.on_tap={};else sel.on_tap=v;setDirty();inspector();preview()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
+ if(cur==='custom (JSON)'){box.append(el('textarea',{value:JSON.stringify(sel.on_tap,null,1),onchange:e=>{try{sel.on_tap=JSON.parse(e.target.value);setDirty();msg('')}catch(x){msg('invalid JSON in on_tap','err')}}}),
+  el('div',{className:'help'},'e.g. {"command":"firefox"} (needs security.allow_commands), {"url":"https://…"}, {"ha_service":"light.toggle","entity":"light.desk"}, or a list of these'))}
  box.append(el('div',{style:'margin-top:12px'},el('button',{className:'danger',onclick:()=>{P().widgets.splice(P().widgets.indexOf(sel),1);sel=null;setDirty();render();preview()}},'Remove widget')))}
 let entLoaded=false;
 async function loadEntities(){if(entLoaded)return;entLoaded=true;try{const r=await (await fetch('/api/entities')).json();
  if(!Array.isArray(r)){msg('entity list: '+(r.error||'unavailable'),'err');entLoaded=false;return}
  let dl=$('#entlist');if(!dl){dl=el('datalist',{id:'entlist'});document.body.append(dl)}
  dl.innerHTML='';r.forEach(x=>dl.append(el('option',{value:x.id},x.name+' · '+x.state+(x.unit||''))))}catch(e){entLoaded=false}}
-let pt=null,pseq=0;function preview(wait=0){clearTimeout(pt);pt=setTimeout(async()=>{const my=++pseq;try{const r=await fetch('/api/preview?page='+page+'&wait='+wait,{method:'POST',body:JSON.stringify(cfg)});
+let pt=null,pseq=0;function preview(wait=0){clearTimeout(pt);pt=setTimeout(async()=>{const my=++pseq;try{const r=await fetch('/api/preview?page='+page+'&wait='+wait,{method:'POST',headers:XRW,body:JSON.stringify(cfg)});
  if(my!==pseq)return;if(!r.ok){msg((await r.json()).error,'err');return}$('#img').src=URL.createObjectURL(await r.blob());if(wait)setTimeout(()=>preview(),1500)}catch(e){msg(String(e),'err')}},180)}
 ['cols','rows','gap'].forEach(id=>$('#'+id).onchange=e=>{P().grid=Object.assign(grid(),{[id]:Number(e.target.value)});const g=grid();
  P().widgets.forEach(w=>{let[c,r,cs,rs]=w.at;c=Math.min(c,g.cols-1);r=Math.min(r,g.rows-1);cs=Math.min(cs,g.cols-c);rs=Math.min(rs,g.rows-r);w.at=[c,r,cs,rs]});setDirty();render();preview()});
 $('#pname').onchange=e=>{P().name=e.target.value;setDirty();render()};
 $('#delpage').onclick=()=>{if(cfg.pages.length<2){msg('need at least one page','err');return}cfg.pages.splice(page,1);page=0;sel=null;setDirty();render();preview()};
 $('#reload').onclick=()=>{if(!dirty||confirm('Discard unsaved changes?'))load()};
-$('#save').onclick=async()=>{const r=await fetch('/api/config',{method:'PUT',body:JSON.stringify(cfg)});const j=await r.json();
+$('#save').onclick=async()=>{const r=await fetch('/api/config',{method:'PUT',headers:XRW,body:JSON.stringify(cfg)});const j=await r.json();
  if(j.ok){saved=JSON.stringify(cfg);dirty=false;msg('saved — the panel reloads within a second','ok')}else msg(j.error,'err')};
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 load();

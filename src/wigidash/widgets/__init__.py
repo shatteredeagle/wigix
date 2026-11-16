@@ -39,9 +39,13 @@ class Widget:
     def draw(self, cv, box) -> None:
         raise NotImplementedError
 
+    def draw_full(self, cv, box) -> None:
+        """Fullscreen view (``on_tap: fullscreen``). Defaults to the normal drawing at the bigger size."""
+        self.draw(cv, box)
+
     def on_tap(self, x: int, y: int) -> bool:
         """Called when the widget is tapped (screen coords). Return True if handled; otherwise the
-        widget's YAML ``on_tap`` action (next_page, prev_page, {page: name}, {ha_service, entity}) runs."""
+        widget's YAML ``on_tap`` action (see Dashboard.run_action) runs."""
         return False
 
     @property
@@ -51,7 +55,7 @@ class Widget:
 
 def load_plugins(extra_dirs=()):
     """Import built-ins, third-party entry points (group ``wigidash.widgets``), and *.py in extra_dirs."""
-    for mod in ("system", "clock", "text", "node", "ha", "alerts", "proxmox", "unraid"):
+    for mod in ("system", "clock", "text", "node", "ha", "alerts", "proxmox", "unraid", "button"):
         importlib.import_module(f"{__name__}.{mod}")
     for ep in importlib.metadata.entry_points(group="wigidash.widgets"):
         try:

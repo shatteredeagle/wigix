@@ -120,10 +120,27 @@ class Editor:
         return page.render()
 
 
-def make_handler(ed: Editor):
+ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+
+
+def make_handler(ed: Editor, extra_hosts=()):
+    allowed = ALLOWED_HOSTS | set(extra_hosts)
+
     class H_(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
+
+        def _guard(self, write: bool) -> bool:
+            """Defend the local API against DNS rebinding (Host check) and cross-site writes (custom header)."""
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0] if not (self.headers.get("Host") or "").startswith("[") \
+                else (self.headers.get("Host") or "").split("]")[0] + "]"
+            if host not in allowed:
+                self._send(403, {"error": "forbidden host"})
+                return False
+            if write and self.headers.get("X-Requested-With") != "wigidash":
+                self._send(403, {"error": "missing X-Requested-With header"})
+                return False
+            return True
 
         def _send(self, code, body, ctype="application/json"):
             if isinstance(body, (dict, list)):
@@ -141,6 +158,8 @@ def make_handler(ed: Editor):
             return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
 
         def do_GET(self):
+            if not self._guard(False):
+                return
             u = urlparse(self.path)
             if u.path == "/":
                 self._send(200, (UI / "index.html").read_bytes(), "text/html; charset=utf-8")
@@ -160,6 +179,8 @@ def make_handler(ed: Editor):
                 self._send(404, {"error": "not found"})
 
         def do_PUT(self):
+            if not self._guard(True):
+                return
             if urlparse(self.path).path != "/api/config":
                 return self._send(404, {"error": "not found"})
             try:
@@ -169,6 +190,8 @@ def make_handler(ed: Editor):
                 self._send(400, {"ok": False, "error": str(e)})
 
         def do_POST(self):
+            if not self._guard(True):
+                return
             u = urlparse(self.path)
             if u.path != "/api/preview":
                 return self._send(404, {"error": "not found"})
@@ -185,9 +208,9 @@ def make_handler(ed: Editor):
     return H_
 
 
-def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True):
+def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True, allowed_hosts=()):
     ed = Editor(path, dashboard)
-    srv = ThreadingHTTPServer((host, port), make_handler(ed))
+    srv = ThreadingHTTPServer((host, port), make_handler(ed, allowed_hosts))
     log.info("editor at http://%s:%d", host, port)
     if block:
         try:

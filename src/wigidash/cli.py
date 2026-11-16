@@ -24,7 +24,10 @@ def main():
         from .editor import serve
         serve(a.config, a.host, a.port)
         return
-    dash = Dashboard(load_config(a.config), a.config)
+    try:
+        dash = Dashboard(load_config(a.config), a.config)
+    except (ValueError, KeyError) as e:
+        raise SystemExit(f"config error: {e}")
     if a.cmd == "run":
         try:
             dash.run()

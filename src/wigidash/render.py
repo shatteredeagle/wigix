@@ -1,11 +1,13 @@
 """Drawing helpers shared by widgets: theme, fonts, cards, bars, sparklines."""
 from __future__ import annotations
 
+import contextlib
+import threading
 from functools import lru_cache
 
 from PIL import ImageDraw, ImageFont
 
-THEME = {
+_BASE_THEME = {
     "bg": (10, 12, 16),
     "card": (28, 32, 40),
     "text": (232, 236, 242),
@@ -15,6 +17,52 @@ THEME = {
     "crit": (240, 84, 84),
     "accent": (86, 156, 255),
 }
+_local = threading.local()
+
+
+class _Theme:
+    """Colors, readable as THEME["card"]. A per-thread override (see theme_override) wins over the
+    global theme, so the editor preview and the live daemon can render different themes at once."""
+
+    def __getitem__(self, key):
+        return (getattr(_local, "override", None) or {}).get(key) or _BASE_THEME[key]
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
+THEME = _Theme()
+
+
+def _parse_theme(d):
+    out = {}
+    for k, v in (d or {}).items():
+        c = parse_color(v)
+        if k in _BASE_THEME and c:
+            out[k] = c
+    return out
+
+
+def set_theme(d):
+    """Apply a ``theme:`` config block (hex colors) globally; unspecified keys reset to defaults."""
+    _BASE_THEME.update({"bg": (10, 12, 16), "card": (28, 32, 40), "text": (232, 236, 242), "dim": (128, 136, 150),
+                        "ok": (74, 214, 130), "warn": (245, 190, 60), "crit": (240, 84, 84), "accent": (86, 156, 255)})
+    _BASE_THEME.update(_parse_theme(d))
+
+
+@contextlib.contextmanager
+def theme_override(d):
+    """Apply a widget's ``theme:`` overrides for the duration of its draw() on this thread."""
+    prev = getattr(_local, "override", None)
+    _local.override = {**(prev or {}), **_parse_theme(d)} if d else prev
+    try:
+        yield
+    finally:
+        _local.override = prev
+
 
 _FONT_PATHS = [
     "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -42,8 +90,9 @@ def level_color(frac: float, warn: float = 0.7, crit: float = 0.9):
 class Canvas:
     """A PIL ImageDraw plus the small set of primitives widgets need."""
 
-    def __init__(self, draw: ImageDraw.ImageDraw):
+    def __init__(self, draw: ImageDraw.ImageDraw, image=None):
         self.d = draw
+        self.image = image if image is not None else getattr(draw, "_image", None)
 
     def card(self, box, title: str | None = None):
         x0, y0, x1, y1 = box

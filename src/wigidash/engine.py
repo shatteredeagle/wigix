@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shlex
 import shutil
+import subprocess
 import threading
 import time
 
@@ -14,7 +16,7 @@ from PIL import Image, ImageDraw
 from . import widgets
 from .integrations import Registry
 from .device import H, W, WigiDash, rgb565
-from .render import THEME, Canvas
+from .render import THEME, Canvas, set_theme, theme_override
 
 log = logging.getLogger("wigidash")
 
@@ -44,7 +46,7 @@ class Page:
         for w in cfg.get("widgets", []):
             cls = widgets.REGISTRY.get(w["type"])
             if cls is None:
-                raise SystemExit(f"unknown widget type {w['type']!r}; known: {sorted(widgets.REGISTRY)}")
+                raise ValueError(f"unknown widget type {w['type']!r}; known: {sorted(widgets.REGISTRY)}")
             make = factory or (lambda c, wc, x: c(wc, x))
             self.items.append((make(cls, w, ctx), w.get("at", [0, 0, 1, 1])))
 
@@ -64,12 +66,17 @@ class Page:
                 return w
         return None
 
-    def render(self) -> Image.Image:
+    def render(self, only=None) -> Image.Image:
+        """Draw the page, or just ``only`` (a widget) filling the screen when it is in fullscreen."""
         img = Image.new("RGB", (W, H), THEME["bg"])
-        cv = Canvas(ImageDraw.Draw(img))
+        cv = Canvas(ImageDraw.Draw(img), img)
         for w, at in self.items:
+            if only is not None and w is not only:
+                continue
+            box = (10, 10, W - 10, H - 10) if only is not None else self.box(at)
             try:
-                w.draw(cv, self.box(at))
+                with theme_override(w.cfg.get("theme")):
+                    (w.draw_full if only is not None else w.draw)(cv, box)
             except Exception:
                 log.exception("draw failed: %s", w.type_name)
         return img
@@ -81,11 +88,13 @@ class Dashboard:
         self.path = path
         self._mtime = os.path.getmtime(os.path.expanduser(str(path))) if path else 0
         self.cfg = cfg
+        set_theme(cfg.get("theme"))
         self.integrations = Registry(cfg)
         self.ctx = dict(cfg, integrations=self.integrations)
         self.pages = self._build_pages(cfg, self.ctx)
         self.page_idx = 0
         self.dev = None
+        self.full = None            # widget shown fullscreen, if any
         self._wake = threading.Event()   # set to redraw immediately
         self._last_action = 0.0
         self._stop = threading.Event()
@@ -103,6 +112,7 @@ class Dashboard:
         integrations = Registry(cfg, reuse=self.integrations)
         ctx = dict(cfg, integrations=integrations)
         pages = self._build_pages(cfg, ctx)
+        set_theme(cfg.get("theme"))
         old, old_integrations = self.pages, self.integrations
         self.cfg, self.ctx, self.pages, self.integrations = cfg, ctx, pages, integrations
         integrations.start()
@@ -156,27 +166,60 @@ class Dashboard:
                 if p.name == target:
                     self.page_idx = i
 
+    def run_action(self, act, source=None):
+        """Run a widget action: "next_page" | "prev_page" | "fullscreen" | "close" | {page: name} |
+        {command: "..."} | {url: ...} | {ha_service: domain.service, entity: ..., data: {...}} | [list of those]."""
+        if act is None:
+            return
+        if isinstance(act, list):
+            for a in act:
+                self.run_action(a, source)
+            return
+        if isinstance(act, str):
+            if act == "fullscreen":
+                self.full = source
+                self._wake.set()
+            elif act == "close":
+                self.full = None
+                self._wake.set()
+            else:
+                self.goto(act)
+        elif "page" in act:
+            self.goto(act["page"])
+        elif "command" in act:
+            if not (self.cfg.get("security") or {}).get("allow_commands"):
+                log.warning("command action ignored: set `security: {allow_commands: true}` to enable it")
+                return
+            cmd = act["command"]
+            subprocess.Popen(cmd if isinstance(cmd, list) else shlex.split(cmd), start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif "url" in act:
+            subprocess.Popen(["xdg-open", act["url"]], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif "ha_service" in act:
+            domain, service = act["ha_service"].split(".", 1)
+            data = dict(act.get("data") or {})
+            if act.get("entity"):
+                data["entity_id"] = act["entity"]
+            self.integrations.get(act.get("integration"), "home_assistant").call_service(domain, service, data)
+        else:
+            log.warning("unknown action: %r", act)
+
     def handle_tap(self, x, y):
         now = time.time()
         if now - self._last_action < 0.35:   # debounce contact bounce
             return
         self._last_action = now
+        if self.full is not None:            # any tap leaves fullscreen
+            self.run_action("close")
+            return
         w = self.current().hit(x, y)
         if w is None:
             return
         log.debug("tap on %s at %d,%d", w.type_name, x, y)
         try:
-            if w.on_tap(x, y):
-                return
-            act = w.cfg.get("on_tap")
-            if isinstance(act, str):
-                self.goto(act)
-            elif isinstance(act, dict) and "page" in act:
-                self.goto(act["page"])
-            elif isinstance(act, dict) and "ha_service" in act:
-                domain, service = act["ha_service"].split(".", 1)
-                self.integrations.get(act.get("integration"), "home_assistant").call_service(
-                    domain, service, {"entity_id": act["entity"]})
+            if not w.on_tap(x, y):
+                self.run_action(w.cfg.get("on_tap"), w)
         except Exception:
             log.exception("tap action failed")
 
@@ -205,7 +248,10 @@ class Dashboard:
                         and abs(dx) > 1.5 * abs(dy)):
                     swiped = True
                     self._last_action = time.time()
-                    self.goto("next_page" if dx < 0 else "prev_page")
+                    if self.full is not None:
+                        self.run_action("close")
+                    else:
+                        self.goto("next_page" if dx < 0 else "prev_page")
             elif start is not None:
                 dx, dy, dt = last[0] - start[0], last[1] - start[1], time.time() - start[2]
                 if (not swiped and abs(dx) < self.TAP_PX and abs(dy) < self.TAP_PX
@@ -213,6 +259,13 @@ class Dashboard:
                     self.handle_tap(*start[:2])
                 start = None
             time.sleep(0.008)
+
+    def render_current(self):
+        page = self.current()
+        full = self.full if self.full is not None and any(w is self.full for w, _ in page.items) else None
+        if full is None:
+            self.full = None
+        return page.render(only=full)
 
     def current(self) -> Page:
         return self.pages[self.page_idx % len(self.pages)]
@@ -230,7 +283,8 @@ class Dashboard:
         ecfg = self.cfg.get("editor")
         if ecfg and self.path:
             from .editor import serve
-            serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False)
+            serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False,
+                  allowed_hosts=ecfg.get("allowed_hosts", ()))
         fps = float(self.cfg.get("fps", 2))
         rotate = float(self.cfg.get("page_seconds", 0))
         last_flip = time.time()
@@ -241,7 +295,7 @@ class Dashboard:
             if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
                 self.page_idx += 1
                 last_flip = t0
-            frame = rgb565(self.current().render())
+            frame = rgb565(self.render_current())
             h = hashlib.blake2b(frame, digest_size=8).digest()
             if h != last_hash or t0 - last_sent > 5:
                 try:
