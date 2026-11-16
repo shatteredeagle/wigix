@@ -61,6 +61,14 @@ Interactive widgets implement `on_tap(x, y) -> bool`; return True when handled. 
 `on_tap: fullscreen` view (defaults to `draw`). Widgets that poll something themselves (no integration) subclass
 `Widget` and implement `update()` (worker thread) plus `draw()`.
 
+## Interactive and animated widgets
+
+- `fps = 15` on a widget makes the dashboard redraw at least that fast while it is visible (capped by the USB link, ~17).
+- `wants_touch = True` + `on_touch(x, y, down)` gives raw touch relative to the widget (drawing, games). Tap/swipe handling is
+  suspended for that touch; in fullscreen a close button appears top-right.
+- `self.ctx["run_action"](action, self)` runs any `on_tap`-style action (pages, services, keys, commands) from code.
+- `self.box` is the widget's current screen rectangle.
+
 ## Tests
 
 Use `tests/fake_http.py` (`FakeHTTP` for TCP, `FakeUnixHTTP` for sockets) instead of real services; see

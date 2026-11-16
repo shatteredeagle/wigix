@@ -96,7 +96,7 @@ class Dashboard:
         self.cfg = cfg
         set_theme(cfg.get("theme"))
         self.integrations = Registry(cfg)
-        self.ctx = dict(cfg, integrations=self.integrations)
+        self.ctx = dict(cfg, integrations=self.integrations, run_action=self.run_action)
         self.pages = self._build_pages(cfg, self.ctx)
         self.page_idx = 0
         self.dev = None
@@ -116,7 +116,7 @@ class Dashboard:
         """Swap in a new config without touching the device. Raises (and keeps the old one) on errors."""
         widgets.load_plugins(cfg.get("plugin_dirs", []))
         integrations = Registry(cfg, reuse=self.integrations)
-        ctx = dict(cfg, integrations=integrations)
+        ctx = dict(cfg, integrations=integrations, run_action=self.run_action)
         pages = self._build_pages(cfg, ctx)
         set_theme(cfg.get("theme"))
         old, old_integrations = self.pages, self.integrations
