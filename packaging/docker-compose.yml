@@ -1,0 +1,21 @@
+# Run the dashboard in a container. Put your config in ./config/dashboard.yaml
+# (`wigix init --out config/dashboard.yaml` creates one).
+#
+# Honest note on privileges: libusb needs the raw USB device node, so the container gets /dev/bus/usb
+# and the host's udev rule (contrib/70-wigix.rules) decides who may open it. Nothing else is shared.
+# Use `privileged: true` instead of `devices:` only if your runtime refuses the device mapping.
+# Key and launcher actions (wtype, xdotool) cannot reach your desktop from inside a container.
+services:
+  wigix:
+    build:
+      context: ..
+      dockerfile: packaging/Dockerfile
+    restart: unless-stopped
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    # Raw USB nodes are root:root 0664-ish by default; the rule above sets 0660 plus uaccess for the
+    # desktop user, so the container (root) can open it. Rootless runtimes need the rule to grant your group.
+    volumes:
+      - ./config:/config
+    ports:
+      - "127.0.0.1:8765:8765"   # web editor; set editor: {port: 8765, host: 0.0.0.0} in the config

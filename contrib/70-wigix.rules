@@ -1,0 +1,6 @@
+# Let the logged-in user talk to the G.SKILL WigiDash without root.
+# ef01 = normal mode, ef02 = update mode (bootloader).
+# Install: sudo cp 70-wigix.rules /etc/udev/rules.d/ && sudo udevadm control --reload \
+#          && sudo udevadm trigger --subsystem-match=usb --action=add
+SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef02", MODE="0660", TAG+="uaccess"

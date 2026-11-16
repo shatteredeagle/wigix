@@ -1,0 +1,33 @@
+# Maintainer: wigix contributors
+pkgname=wigix
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Linux driver and configurable dashboard for the G.SKILL WigiDash USB touch panel'
+arch=('any')
+url='https://github.com/OWNER/wigix'
+license=('GPL-3.0-only')
+depends=('python' 'python-pyusb' 'python-pillow' 'python-numpy' 'python-yaml' 'python-psutil'
+         'python-requests' 'python-websocket-client' 'python-icalendar'
+         'python-recurring-ical-events' 'python-paho-mqtt' 'libusb')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+optdepends=('playerctl: media_player widget'
+            'ffmpeg: video and camera widgets'
+            'libpulse: audio_visualizer widget (parec)'
+            'wtype: key actions on Wayland'
+            'xdotool: key actions on X11')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # replace with the real checksum for a tagged release
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 contrib/70-wigix.rules "$pkgdir/usr/lib/udev/rules.d/70-wigix.rules"
+  install -Dm644 contrib/wigix.service "$pkgdir/usr/lib/systemd/user/wigix.service"
+  install -Dm644 examples/dashboard.yaml "$pkgdir/usr/share/doc/$pkgname/dashboard.yaml"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
