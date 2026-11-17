@@ -158,6 +158,10 @@ def build_menu(status: dict | None, has_systemctl: bool = False, autostart: bool
         near = nearest_preset(status.get("brightness"))
         items.append(MenuItem("submenu", "Brightness", children=tuple(
             MenuItem("action", f"{p} %", f"brightness:{p}", p == near) for p in BRIGHTNESS_PRESETS)))
+        if "rotate" in status:
+            items.append(MenuItem("action", "Auto-rotate pages", "toggle_rotate", bool(status["rotate"])))
+        if "screensaver" in status:
+            items.append(MenuItem("action", "Screensaver and dimming", "toggle_screensaver", bool(status["screensaver"])))
         paused = bool(status.get("paused"))
         items.append(MenuItem("action", "Resume display" if paused else "Pause display",
                               "resume" if paused else "pause"))
@@ -176,6 +180,8 @@ def control_for(key: str) -> tuple[str, dict] | None:
         return "page", {"name": key[5:]}
     if key.startswith("brightness:"):
         return "brightness", {"value": int(key[11:])}
+    if key in ("toggle_rotate", "toggle_screensaver"):
+        return key[7:], {}
     if key in ("next_page", "prev_page", "pause", "resume", "toggle_pause", "wake"):
         return key, {}
     return None

@@ -31,6 +31,8 @@ Left-click (or right-click) opens the menu; middle-click toggles pause.
 - **Open editor**: opens the editor with its access link in your browser
 - **Page**: the pages as a checkable list (the current one is ticked) and **Next page**
 - **Brightness**: 10, 25, 50, 75 or 100 % (the nearest to the current value is ticked)
+- **Auto-rotate pages** and **Screensaver and dimming**: checkable runtime switches (they last until the daemon restarts;
+  the config file decides the defaults)
 - **Pause display** / **Resume display**
 - **Restart daemon**: runs `systemctl --user restart wigix` (only shown if `systemctl` exists)
 - **Quit tray**

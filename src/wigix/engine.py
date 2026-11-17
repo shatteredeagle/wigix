@@ -20,7 +20,8 @@ from .integrations import Registry
 from .integrations.net import describe_error
 from .device import H, W, WigiDash, rgb565
 from .overlay import Overlays
-from .render import THEME, Canvas, set_theme, theme_override
+from .render import THEME, Canvas, mix, set_theme, theme_override
+from .settings import idle_settings, in_rotation, page_dwell, rotate_settings
 
 log = logging.getLogger("wigix")
 
@@ -57,6 +58,7 @@ def save_config(path, cfg):
 class Page:
     def __init__(self, cfg, ctx, factory=None):
         self.name = cfg.get("name", "page")
+        self.cfg = cfg
         g = cfg.get("grid", {})
         self.cols, self.rows, self.gap = g.get("cols", 4), g.get("rows", 3), g.get("gap", 10)
         self.items = []
@@ -118,6 +120,8 @@ class Dashboard:
         self.page_idx = 0
         self.dev = None
         self.full = None            # widget shown fullscreen, if any
+        self.rotate_override: bool | None = None   # tray switch for auto-rotation (survives config reloads)
+        self._page_since = time.time()             # when the current page appeared (rotation dwell timer)
         self.overlays = Overlays(self)
         self._wake = threading.Event()   # set to redraw immediately
         self._last_action = 0.0
@@ -181,6 +185,7 @@ class Dashboard:
 
     def goto(self, target):
         self._wake.set()
+        self._page_since = time.time()
         if target == "next_page":
             self.page_idx += 1
         elif target == "prev_page":
@@ -366,10 +371,12 @@ class Dashboard:
         return {"running": True, "connected": self.dev is not None, "page": self.page_idx % len(self.pages),
                 "page_name": self.current().name, "pages": [p.name for p in self.pages], "paused": o.manual_off,
                 "brightness": o.manual_brightness if o.manual_brightness is not None else self.cfg.get("brightness"),
-                "idle": o.idle}
+                "idle": o.idle, "rotate": self.rotation()["enabled"],
+                "screensaver": idle_settings(self.cfg, o.idle_override) is not None}
 
     def control(self, req: dict) -> dict:
-        """Remote control (tray): {"action": next_page|prev_page|page|pause|resume|toggle_pause|brightness|wake}."""
+        """Remote control (tray): {"action": next_page|prev_page|page|pause|resume|toggle_pause|brightness|wake|
+        rotate|screensaver}; rotate and screensaver take an optional boolean `value` (omitted = toggle)."""
         a = req.get("action")
         if a in ("next_page", "prev_page"):
             self.goto(a)
@@ -387,6 +394,17 @@ class Dashboard:
             if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 <= v <= 100:
                 raise ValueError("brightness value must be a number from 0 to 100")
             self.overlays.manual_brightness = int(v)
+        elif a in ("rotate", "screensaver"):
+            v = req.get("value")
+            if v is not None and not isinstance(v, bool):
+                raise ValueError(f"{a} value must be true or false")
+            if a == "rotate":
+                self.rotate_override = (not self.rotation()["enabled"]) if v is None else v
+                self._page_since = time.time()
+            else:
+                cur = idle_settings(self.cfg, self.overlays.idle_override) is not None
+                self.overlays.idle_override = (not cur) if v is None else v
+                self.overlays.wake()
         elif a == "wake":
             self.overlays.wake()
         else:
@@ -429,7 +447,50 @@ class Dashboard:
         full = self.full if self.full is not None and any(w is self.full for w, _ in page.items) else None
         if full is None:
             self.full = None
-        return page.render(only=full)
+        img = page.render(only=full)
+        if full is None:
+            self._draw_page_dots(img, page)
+        return img
+
+    def _draw_page_dots(self, img, page):
+        """Small position dots in the bottom margin (`page_dots: false` hides them)."""
+        n = len(self.pages)
+        if n < 2 or not self.cfg.get("page_dots", True) or page.gap < 8:
+            return
+        r, step = 3, 14
+        x0, y = W // 2 - (n - 1) * step // 2, H - max(4, page.gap // 2)
+        d = ImageDraw.Draw(img)
+        dim = mix(THEME["bg"], THEME["dim"], 0.55)
+        for i in range(n):
+            x = x0 + i * step
+            d.ellipse((x - r, y - r, x + r, y + r), fill=THEME["accent"] if self.pages[i] is page else dim)
+
+    # --- auto-rotation -----------------------------------------------------------------------
+    def rotation(self) -> dict:
+        return rotate_settings(self.cfg, self.rotate_override)
+
+    def _rotate(self, now):
+        """Advance to the next page once the current one has been shown for its dwell time. Holds off (and
+        restarts the timer) while someone is touching the panel, a popup or fullscreen widget is up, the screensaver
+        is on, or the display is paused."""
+        rot = self.rotation()
+        if not rot["enabled"] or len(self.pages) < 2:
+            self._page_since = now
+            return
+        o = self.overlays
+        if (now - o.last_touch < rot["pause_after_touch"] or self.full is not None or o.popup_active()
+                or o.idle or o.manual_off):
+            self._page_since = now
+            return
+        if now - self._page_since < page_dwell(self.current().cfg, rot["seconds"]):
+            return
+        n, i = len(self.pages), self.page_idx % len(self.pages)
+        for step in range(1, n):
+            k = (i + step) % n
+            if in_rotation(self.pages[k].cfg):
+                self.page_idx = k
+                break
+        self._page_since = now
 
     def current(self) -> Page:
         return self.pages[self.page_idx % len(self.pages)]
@@ -449,17 +510,13 @@ class Dashboard:
             from .editor import serve
             serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False,
                   allowed_hosts=ecfg.get("allowed_hosts", ()))
-        rotate = float(self.cfg.get("page_seconds", 0))
-        last_flip = time.time()
         dev, last_hash, last_sent = None, None, 0.0
         while True:
             t0 = time.time()
             fps = self.target_fps()
             self._check_reload()
-            if rotate and len(self.pages) > 1 and t0 - last_flip > rotate:
-                self.page_idx += 1
-                last_flip = t0
             self.overlays.update(t0)
+            self._rotate(t0)
             self._apply_brightness(dev)
             frame = rgb565(self.overlays.frame() or self.render_current())
             h = hashlib.blake2b(frame, digest_size=8).digest()

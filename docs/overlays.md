@@ -8,8 +8,13 @@ Shown for 1.5 s when the panel connects (name, version, firmware). `splash: {sec
 
 ## Idle: dim and screensaver
 
+Switch it off completely with `idle: false` (or keep the numbers and set `enabled: false`). Want dimming without the
+animation? `screensaver: false`. In the editor: **Settings → Screensaver and dimming**. From the tray: **Screensaver and
+dimming** (a runtime switch that lasts until the daemon restarts).
+
 ```yaml
 idle:
+  enabled: true         # false = no dimming and no screensaver (the other keys are kept for later)
   after: 300            # seconds without a touch
   dim_to: 10            # brightness % while idle (omit to keep brightness)
   off_after: 1800       # brightness 0 after this long (omit to never)
@@ -18,6 +23,29 @@ idle:
 
 The first touch wakes the screen and is swallowed (it does not press whatever was underneath). The screensaver drifts so
 no pixel stays lit. Any widget can be the screensaver (`screensaver: {type: image, source: ~/pics/loop.gif}`).
+
+## Auto-rotating pages
+
+```yaml
+rotate:
+  enabled: true
+  seconds: 20               # time on each page (the old `page_seconds: 20` still works)
+  pause_after_touch: 30     # hold still this long after someone touches the panel
+page_dots: true             # position dots at the bottom edge (false hides them)
+pages:
+  - name: Home
+    seconds: 45             # this page stays longer
+  - name: Notes
+    rotate: false           # skipped by the rotation, still reachable by swiping
+```
+
+Rotation also holds still while a popup or fullscreen widget is up, while the screensaver is showing and while the
+display is paused. Swiping or tapping to another page restarts that page's timer. Tray: **Auto-rotate pages**.
+
+## Themes
+
+`theme: nord` (or `theme: {preset: nord, accent: "#ff8800"}`; explicit colors win). Presets: midnight (default), amoled,
+nord, dracula, solarized, forest, sunset, daylight. The editor shows them as swatches under **Settings → Theme**.
 
 ## Triggers and popups
 

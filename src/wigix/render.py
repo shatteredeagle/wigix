@@ -8,6 +8,8 @@ from functools import lru_cache
 
 from PIL import ImageDraw, ImageFont
 
+from .settings import resolve_theme
+
 _BASE_THEME = {
     "bg": (10, 12, 16),
     "card": (28, 32, 40),
@@ -40,7 +42,7 @@ THEME = _Theme()
 
 def _parse_theme(d):
     out = {}
-    for k, v in (d or {}).items():
+    for k, v in resolve_theme(d).items():
         c = parse_color(v)
         if k in _BASE_THEME and c:
             out[k] = c
@@ -84,6 +86,11 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default(size)
 
 
+def mix(a, b, t: float):
+    """Blend colour a toward b by t (0..1)."""
+    return tuple(int(x + (y - x) * t) for x, y in zip(a, b))
+
+
 def level_color(frac: float, warn: float = 0.7, crit: float = 0.9):
     return THEME["crit"] if frac >= crit else THEME["warn"] if frac >= warn else THEME["ok"]
 
@@ -97,7 +104,7 @@ class Canvas:
 
     def card(self, box, title: str | None = None):
         x0, y0, x1, y1 = box
-        self.d.rounded_rectangle(box, radius=14, fill=THEME["card"])
+        self.d.rounded_rectangle(box, radius=14, fill=THEME["card"], outline=mix(THEME["card"], THEME["text"], 0.09))
         if title:
             self.text((x0 + 14, y0 + 8), title, size=18, color=THEME["dim"])
         return x0 + 14, y0 + (34 if title else 14), x1 - 14, y1 - 12  # inner box

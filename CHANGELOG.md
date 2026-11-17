@@ -2,6 +2,15 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- **Settings that were missing**: switch the screensaver and dimming off (`idle: false` or `enabled: false`) or keep just
+  the dimming (`screensaver: false`); rotate through pages automatically with `rotate:` (per-page `seconds` and
+  `rotate: false`, holds still while you touch the panel); `page_dots`; `swipe` and `splash` toggles in the editor.
+- **Editor**: Settings tab rebuilt as cards with switches; theme preset picker; page rotation options in the Inspector.
+- **Tray**: checkable "Auto-rotate pages" and "Screensaver and dimming" items (runtime switches).
+- **Look**: eight theme presets (`theme: nord`), card outlines, page position dots on the panel.
+
 ## 0.1.0 (first release)
 
 Linux driver and configurable dashboard for the G.SKILL WigiDash USB touch panel (1016x592).

@@ -37,6 +37,7 @@ from .integrations.schemas import fields_for, inline_secret_keys
 from .device import H, W
 from .engine import Dashboard, Page, load_config, save_config
 from .render import THEME, parse_color, theme_override
+from .settings import PRESETS
 
 log = logging.getLogger("wigix.editor")
 UI = pathlib.Path(__file__).with_name("editor_ui")
@@ -168,7 +169,7 @@ class Editor:
 
     def meta(self, cfg):
         """Static facts the UI needs: theme defaults and the read-only editor/host settings."""
-        return {"theme": DEFAULT_THEME, "editor": cfg.get("editor") or {}, "path": str(self.path)}
+        return {"theme": DEFAULT_THEME, "editor": cfg.get("editor") or {}, "path": str(self.path), "presets": PRESETS}
 
     def status(self):
         """Live integration state when the editor runs inside the daemon; otherwise ``running: false``."""
@@ -222,7 +223,16 @@ class Editor:
             raise
         except Exception:
             pass                         # e.g. a secret file that only exists on the panel's machine
-        for k, v in (cfg.get("theme") or {}).items():
+        theme = cfg.get("theme") or {}
+        if isinstance(theme, str):
+            theme = {"preset": theme}
+        if not isinstance(theme, dict):
+            raise ValueError("`theme:` must be a preset name or a mapping of colors")
+        if "preset" in theme and str(theme["preset"]).lower() not in PRESETS:
+            raise ValueError(f"theme.preset: unknown preset {theme['preset']!r}; known: {sorted(PRESETS)}")
+        for k, v in theme.items():
+            if k == "preset":
+                continue
             if k not in DEFAULT_THEME:
                 raise ValueError(f"theme: unknown color {k!r}; known: {sorted(DEFAULT_THEME)}")
             if parse_color(v) is None:
@@ -232,6 +242,7 @@ class Editor:
             raise ValueError(f"fps must be a number between 0 and {Dashboard.MAX_FPS:g}")
         if "brightness" in cfg and not (isinstance(cfg["brightness"], (int, float)) and 0 <= cfg["brightness"] <= 100):
             raise ValueError("brightness must be a number from 0 to 100")
+        self._check_display_settings(cfg)
         if not isinstance(cfg.get("security") or {}, dict):
             raise ValueError("`security:` must be a mapping")
         Dashboard._build_pages(cfg, dict(cfg))   # raises on unknown widget types / bad config
@@ -247,6 +258,31 @@ class Editor:
                         f"widget {w['type']} on page {p.get('name')} uses integration {ref!r}, which is not defined; "
                         f"{'defined: ' + ', '.join(names) if names else 'there are none yet'} (add it in the Integrations panel)")
         return warnings
+
+    @staticmethod
+    def _check_display_settings(cfg):
+        def num(where, v, lo, hi):
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not lo <= v <= hi:
+                raise ValueError(f"{where} must be a number from {lo:g} to {hi:g}")
+        for key in ("rotate", "idle", "splash"):
+            v = cfg.get(key)
+            if v is not None and not isinstance(v, (bool, dict)):
+                raise ValueError(f"`{key}:` must be true, false or a mapping")
+        if cfg.get("page_seconds") is not None:
+            num("page_seconds", cfg["page_seconds"], 0, 86400)
+        rot = cfg.get("rotate") if isinstance(cfg.get("rotate"), dict) else {}
+        for k, hi in (("seconds", 86400), ("pause_after_touch", 3600)):
+            if rot.get(k) is not None:
+                num(f"rotate.{k}", rot[k], 0, hi)
+        idle = cfg.get("idle") if isinstance(cfg.get("idle"), dict) else {}
+        for k, lo, hi in (("after", 1, 86400), ("dim_to", 0, 100), ("off_after", 1, 604800)):
+            if idle.get(k) is not None:
+                num(f"idle.{k}", idle[k], lo, hi)
+        if isinstance(cfg.get("splash"), dict) and cfg["splash"].get("seconds") is not None:
+            num("splash.seconds", cfg["splash"]["seconds"], 0, 60)
+        for i, p in enumerate(cfg.get("pages") or []):
+            if isinstance(p, dict) and p.get("seconds") is not None:
+                num(f"pages[{i}].seconds", p["seconds"], 1, 86400)
 
     def validate(self, cfg):
         self.check(cfg)

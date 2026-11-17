@@ -26,7 +26,8 @@ STARTER_CONFIG = '''\
 # wigix dashboard. Edit it here or in the web editor (http://localhost:8765 while `wigix run` is up).
 # The running daemon hot-reloads this file when it changes.
 fps: 2
-page_seconds: 0            # >0 rotates through the pages by itself
+rotate: {enabled: false, seconds: 20}     # true = flip through the pages by itself (a page can set its own `seconds`)
+idle: {after: 300, dim_to: 15}            # dim and show the screensaver after 5 idle minutes; `idle: false` turns it off
 plugin_dirs: ["~/.config/wigix/widgets"]   # drop your own widget .py files here
 
 editor: {port: 8765}       # web editor inside the daemon; binds to localhost only

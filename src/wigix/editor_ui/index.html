@@ -44,6 +44,21 @@ details.sec{margin-top:12px}details.sec>summary{cursor:pointer;color:var(--dim);
 #ystat{font-size:12px;margin:6px 0 2px;display:inline-block}#ystat.err{color:var(--crit);cursor:pointer}#ystat.ok{color:var(--ok)}#ystat.warn{color:var(--warn)}
 @media (max-width:1100px){main{grid-template-columns:150px minmax(0,1fr) 300px}}
 @media (max-width:760px){main{grid-template-columns:1fr}aside{border:0!important}body{height:auto}}
+
+header h1{display:flex;align-items:center;gap:8px}header h1::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+button,input,select,textarea{border-radius:8px}input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.card2{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 12px}
+.card2>h2{margin:0 0 6px;display:flex;align-items:center;gap:8px}.card2 .help{margin:2px 0 6px}
+.trow{display:flex;align-items:center;gap:10px;margin:8px 0 2px;cursor:pointer;color:var(--text);font-size:13px}.trow span{flex:1}
+input.sw{appearance:none;-webkit-appearance:none;width:36px;height:20px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;flex:none;padding:0;border:0;transition:background .15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw:checked{background:var(--accent)}.sw:checked::after{transform:translateX(16px)}.sw:disabled{opacity:.45;cursor:default}
+.nrow{display:grid;grid-template-columns:1fr 84px 44px;gap:6px;align-items:center;margin:6px 0}.nrow label{margin:0}.nrow small{color:var(--dim)}
+.nrow input{padding:4px 7px}.off .nrow,.off .sub{opacity:.45;pointer-events:none}
+.presets{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0 8px}
+.preset{display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;text-align:left}
+.preset.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.preset .dots{display:flex;gap:3px}.preset i{width:14px;height:14px;border-radius:50%;display:block;border:1px solid rgba(128,128,128,.3)}
+.preset b{font-weight:500;font-size:12px}
 </style></head><body>
 <header><h1>Wigix editor</h1>
  <label style="margin:0">Grid <input id="cols" type="number" min="1" max="8" style="width:56px"> × <input id="rows" type="number" min="1" max="6" style="width:56px"></label>
@@ -93,7 +108,7 @@ function jump(to){if(to<0||to>=hist.length)return;const idx=sel?P().widgets.inde
 const undo=()=>jump(hpos-1), redo=()=>jump(hpos+1);
 
 // --- loading -----------------------------------------------------------------------------------
-async function load(){cfg=await (await fetch('/api/config')).json();cfg.pages=cfg.pages||[];
+async function load(){cfg=await (await fetch('/api/config')).json();cfg.pages=cfg.pages||[];if(typeof cfg.theme==='string')cfg.theme={preset:cfg.theme};
  if(!cfg.pages.length)cfg.pages.push({name:'Page 1',grid:{cols:4,rows:3,gap:10},widgets:[]});
  types={};(await (await fetch('/api/widgets')).json()).forEach(t=>types[t.type]=t);
  itypes={};(await (await fetch('/api/integration-types')).json()).forEach(t=>itypes[t.type]=t);
@@ -162,9 +177,10 @@ function fieldRow(box,f,obj,changed,opts={}){
 function intNames(){return [...Object.keys(cfg.integrations||{}),...(cfg.home_assistant&&!(cfg.integrations||{}).ha?['ha']:[])]}
 function intDatalist(){let dl=$('#intlist');if(!dl){dl=el('datalist',{id:'intlist'});document.body.append(dl)}dl.innerHTML='';intNames().forEach(n=>dl.append(el('option',{value:n})))}
 // themeFields edits owner.theme (global cfg or one widget): 8 colors, each optionally overridden.
-function themeFields(box,owner,changed){
+function baseTheme(owner){return Object.assign({},meta.theme,owner===cfg?(meta.presets||{})[(cfg.theme||{}).preset]||{}:{})}
+function themeFields(box,owner,changed){const base=baseTheme(owner);
  THEME_KEYS.forEach(k=>{const own=(owner.theme||{})[k],row=el('div',{className:'swatch'});
-  row.append(el('span',{},k),el('input',{type:'color',value:own||meta.theme[k]||'#000000',title:k,onchange:e=>{owner.theme=owner.theme||{};owner.theme[k]=e.target.value;changed()}}),
+  row.append(el('span',{},k),el('input',{type:'color',value:own||base[k]||'#000000',title:k,onchange:e=>{owner.theme=owner.theme||{};owner.theme[k]=e.target.value;changed()}}),
    el('button',{className:'small',disabled:!own,title:'Back to default',onclick:()=>{delete owner.theme[k];if(!Object.keys(owner.theme).length)delete owner.theme;changed(true)}},own?'reset':'default'));box.append(row)})}
 
 // --- inspector ---------------------------------------------------------------------------------
@@ -173,6 +189,10 @@ function inspector(){const box=$('#p-inspector');box.innerHTML='';
  box.append(el('div',{className:'row',style:'margin-top:8px'},
   el('button',{title:'Move page left',disabled:page===0,onclick:()=>movePage(-1)},'◀ Move'),el('button',{title:'Move page right',disabled:page===cfg.pages.length-1,onclick:()=>movePage(1)},'Move ▶'),
   el('button',{className:'danger',id:'delpage',onclick:delPage},'Delete page')));
+ const rot=rotation();
+ box.append(el('label',{className:'trow'},el('span',{},'Include in auto-rotation'),el('input',{id:'pinrot',type:'checkbox',className:'sw',checked:P().rotate!==false,onchange:e=>{if(e.target.checked)delete P().rotate;else P().rotate=false;commit();inspector()}})),
+  el('label',{},'Stay for (seconds)'),el('input',{id:'pdwell',type:'number',min:1,max:3600,disabled:P().rotate===false,value:P().seconds??'',placeholder:String(rot.seconds)+' (global)',
+   onchange:e=>{if(e.target.value==='')delete P().seconds;else P().seconds=Math.max(1,Number(e.target.value));commit()}}));
  box.append(el('h2',{style:'margin-top:18px'},'Widget'));
  if(!sel||!P().widgets.includes(sel)){box.append(el('div',{className:'help'},'Select a widget on the preview.'));return}
  const t=types[sel.type]||{fields:[],doc:''};box.append(el('div',{className:'help'},t.doc.split('\n')[0]));
@@ -247,20 +267,55 @@ async function pollStatus(){if(document.hidden)return;try{status=await (await fe
 setInterval(pollStatus,3000);
 
 // --- settings ----------------------------------------------------------------------------------
+const toggleRow=(id,label,on,change,disabled=false)=>el('label',{className:'trow'},el('span',{},label),el('input',{id,type:'checkbox',className:'sw',checked:on,disabled,onchange:e=>change(e.target.checked)}));
+function numRow(id,label,val,unit,{min=0,max=86400,scale=1,placeholder='',set}){
+ return el('div',{className:'nrow'},el('label',{},label),el('input',{id,type:'number',min,max,step:'any',value:val===undefined||val===null?'':val/scale,placeholder,
+  onchange:e=>{set(e.target.value===''?undefined:Math.max(min*scale,Math.min(max*scale,Number(e.target.value)*scale)));commit()}}),el('small',{},unit))}
+function rotation(){const r=typeof cfg.rotate==='object'&&cfg.rotate?cfg.rotate:{},legacy=Number(cfg.page_seconds)||0;
+ return {enabled:cfg.rotate===true||(cfg.rotate!==false&&(r.enabled??(Object.keys(r).length>0||legacy>0))),seconds:Number(r.seconds||legacy||15),pause:Number(r.pause_after_touch??30)}}
+function setRotation(patch){const cur=rotation(),n={enabled:cur.enabled,seconds:cur.seconds,pause_after_touch:cur.pause,...patch};delete cfg.page_seconds;cfg.rotate=n;commit()}
+function idleCfg(){return typeof cfg.idle==='object'&&cfg.idle?cfg.idle:null}
+function idleOn(){const i=idleCfg();return !!i&&i.enabled!==false}
+function setIdle(on){if(on){const i=idleCfg()||{after:300,dim_to:15,screensaver:{type:'screensaver',text:'wigix'}};delete i.enabled;cfg.idle=i}else if(idleCfg())cfg.idle.enabled=false;commit()}
 function settingsPanel(){const box=$('#p-settings');box.innerHTML='';
- box.append(el('h2',{},'Theme'),el('div',{className:'help'},'Global colors; widgets can override them in the Inspector.'));
- const sw=el('div');themeFields(sw,cfg,again=>{commit();if(again)settingsPanel();preview()});box.append(sw,
-  el('button',{className:'small',id:'themereset',style:'margin-top:6px',disabled:!cfg.theme,onclick:()=>{delete cfg.theme;commit();settingsPanel();preview()}},'Reset all colors'));
- box.append(el('h2',{style:'margin-top:18px'},'Display'),el('label',{},'fps'),
-  el('input',{id:'fps',type:'number',min:1,max:17,step:'any',value:cfg.fps??'',placeholder:'2',onchange:e=>{if(e.target.value==='')delete cfg.fps;else cfg.fps=Number(e.target.value);commit()}}),
-  el('div',{className:'help'},'How often the panel redraws (default 2, at most 17: the USB link is the limit). Animated widgets raise it while visible.'));
- const sec=cfg.security||{};box.append(el('h2',{style:'margin-top:18px'},'Security'),
-  el('label',{style:'display:flex;gap:8px;align-items:center;color:var(--text)'},el('input',{id:'allowcmd',type:'checkbox',checked:!!sec.allow_commands,disabled:true}),'Commands and key presses '+(sec.allow_commands?'allowed':'blocked')));
- box.append(warnBox('Command, key and plugin settings (security.allow_commands, plugin_dirs, editor) can only be changed by editing the config file by hand: they let the daemon run code, so this editor cannot touch them. Anyone with access to this editor can still change which services and files the daemon connects to, so keep it on localhost.','crit'));
- box.append(el('h2',{style:'margin-top:18px'},'Editor and host (read-only)'),
-  el('div',{className:'help'},'These are set in the YAML file only, because changing them from the editor could lock you out.'));
- const ed=meta.editor||{},rows=[['config file',meta.path],['editor host',ed.host??'127.0.0.1'],['editor port',ed.port??8765],['allowed hosts',(ed.allowed_hosts||[]).join(', ')||'(localhost only)']];
- rows.forEach(([k,v])=>box.append(el('label',{},k),el('input',{type:'text',value:String(v??''),readOnly:true})))}
+ // Pages: auto-rotate
+ const rot=rotation(),pg=el('div',{className:'card2'+(rot.enabled?'':' off')});
+ pg.append(el('h2',{},'Pages'),toggleRow('rotate-on','Rotate through pages automatically',rot.enabled,v=>{setRotation({enabled:v});settingsPanel()}),
+  numRow('rot-secs','Stay on each page',rot.seconds,'sec',{min:1,max:3600,set:v=>setRotation({seconds:v??15})}),
+  numRow('rot-pause','Pause after a touch',rot.pause,'sec',{min:0,max:3600,set:v=>setRotation({pause_after_touch:v??30})}),
+  el('div',{className:'help'},'Rotation holds still while someone is using the panel, a popup is up, or the screensaver is on. Set a page’s own time, or leave a page out, in the Inspector tab.'),
+  toggleRow('dots-on','Show page dots on the panel',cfg.page_dots!==false,v=>{if(v)delete cfg.page_dots;else cfg.page_dots=false;commit()}),
+  toggleRow('swipe-on','Swipe left/right to change page',cfg.swipe!==false,v=>{if(v)delete cfg.swipe;else cfg.swipe=false;commit()}));
+ // Screensaver
+ const on=idleOn(),i=idleCfg()||{},ss=i.screensaver,ssOn=on&&ss!==false&&!(ss&&ss.enabled===false);
+ const sv=el('div',{className:'card2'+(on?'':' off')});
+ sv.append(el('h2',{},'Screensaver and dimming'),toggleRow('idle-on','Dim and show a screensaver when idle',on,v=>{setIdle(v);settingsPanel()}),
+  numRow('idle-after','Start after',i.after??300,'min',{min:0.1,max:1440,scale:60,placeholder:'5',set:v=>{cfg.idle=idleCfg()||{};cfg.idle.after=v??300}}),
+  numRow('idle-dim','Dim to',i.dim_to,'%',{min:0,max:100,placeholder:'keep',set:v=>{cfg.idle=idleCfg()||{};if(v===undefined)delete cfg.idle.dim_to;else cfg.idle.dim_to=Math.round(v)}}),
+  numRow('idle-off','Screen off after',i.off_after,'min',{min:1,max:10080,scale:60,placeholder:'never',set:v=>{cfg.idle=idleCfg()||{};if(v===undefined)delete cfg.idle.off_after;else cfg.idle.off_after=v}}),
+  toggleRow('saver-on','Show the wigix screensaver (off = just dim)',ssOn,v=>{cfg.idle=idleCfg()||{};if(v)cfg.idle.screensaver=typeof ss==='object'&&ss&&ss.enabled!==false?ss:{type:'screensaver',text:'wigix'};else cfg.idle.screensaver=false;commit();settingsPanel()},!on),
+  el('div',{className:'help'},'The first touch while idle only wakes the panel; it is not passed on to the page.'));
+ // Startup
+ const sp=el('div',{className:'card2'});sp.append(el('h2',{},'Startup'),toggleRow('splash-on','Show the wigix splash when the panel connects',cfg.splash!==false&&!(cfg.splash&&cfg.splash.enabled===false),v=>{if(v)delete cfg.splash;else cfg.splash=false;commit()}));
+ // Display
+ const dp=el('div',{className:'card2'});dp.append(el('h2',{},'Display'),
+  numRow('fps','Refresh rate',cfg.fps,'fps',{min:1,max:17,placeholder:'2',set:v=>{if(v===undefined)delete cfg.fps;else cfg.fps=v}}),
+  el('div',{className:'help'},'How often the panel redraws (default 2, at most 17: the USB link is the limit). Animated widgets raise it while visible. Brightness is the slider in the header.'));
+ // Theme
+ const th=el('div',{className:'card2'});th.append(el('h2',{},'Theme'));const cur=(cfg.theme||{}).preset;
+ const grid2=el('div',{className:'presets'});
+ Object.entries(meta.presets||{}).forEach(([name,c])=>grid2.append(el('button',{className:'preset'+(cur===name||(!cur&&name==='midnight'&&!cfg.theme)?' on':''),title:name,onclick:()=>{cfg.theme=Object.assign({},cfg.theme||{},{preset:name});if(name==='midnight'&&Object.keys(cfg.theme).length===1)delete cfg.theme;commit();settingsPanel();preview()}},
+  el('span',{className:'dots'},...['bg','card','accent','ok','crit'].map(k=>el('i',{style:'background:'+c[k]}))),el('b',{},name))));
+ th.append(grid2,el('div',{className:'help'},'Pick a preset, then fine-tune single colors below. Widgets can override colors in the Inspector.'));
+ const sw=el('details',{className:'sec'},el('summary',{},'Custom colors'));themeFields(sw,cfg,again=>{commit();if(again)settingsPanel();preview()});
+ th.append(sw,el('button',{className:'small',id:'themereset',style:'margin-top:6px',disabled:!cfg.theme,onclick:()=>{delete cfg.theme;commit();settingsPanel();preview()}},'Reset theme'));
+ box.append(pg,sv,sp,dp,th);
+ const sec=cfg.security||{},sc=el('div',{className:'card2'});sc.append(el('h2',{},'Security'),
+  el('label',{className:'trow'},el('span',{},'Commands and key presses '+(sec.allow_commands?'allowed':'blocked')),el('input',{id:'allowcmd',type:'checkbox',className:'sw',checked:!!sec.allow_commands,disabled:true})),
+  warnBox('Command, key and plugin settings (security.allow_commands, plugin_dirs, editor) can only be changed by editing the config file by hand: they let the daemon run code, so this editor cannot touch them. Anyone with access to this editor can still change which services and files the daemon connects to, so keep it on localhost.','crit'));
+ const ed=meta.editor||{},ec=el('details',{className:'card2'},el('summary',{},'Editor and host (read-only)'),el('div',{className:'help'},'Set in the YAML file only, because changing them from the editor could lock you out.'));
+ [['config file',meta.path],['editor host',ed.host??'127.0.0.1'],['editor port',ed.port??8765],['allowed hosts',(ed.allowed_hosts||[]).join(', ')||'(localhost only)']].forEach(([k,v])=>ec.append(el('label',{},k),el('input',{type:'text',value:String(v??''),readOnly:true})));
+ box.append(sc,ec)}
 
 // --- raw YAML ----------------------------------------------------------------------------------
 let ytimer=0, yEdited=false, yparsed=null;

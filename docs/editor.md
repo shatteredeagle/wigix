@@ -34,7 +34,7 @@ status. There are no dependencies beyond the standard library, Pillow and PyYAML
 - **Integrations**: one card per entry of `integrations:` with a form for its type. A colored dot shows live
   status: green connected, yellow connecting, red error (hover for the message), grey not running or not
   applied yet. It refreshes every 3 seconds. A standalone editor reports "not running".
-- **Settings**: the eight theme colors (with per-color and global reset), `fps`, the
+- **Settings**: page rotation, the screensaver and dimming, splash, theme presets, the eight theme colors (with per-color and global reset), `fps`, the
   `security.allow_commands` switch (with a warning: it lets tap actions run shell commands and press keys), and
   the read-only editor/host settings. Brightness and the page grid are in the header.
 

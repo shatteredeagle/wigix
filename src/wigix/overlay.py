@@ -5,7 +5,7 @@
 Config (all optional)::
 
     splash: {seconds: 1.5}          # or `splash: false`
-    idle:
+    idle:                           # `idle: false` (or enabled: false) switches dimming and the screensaver off
       after: 300                    # seconds without a touch
       dim_to: 10                    # brightness % while idle (omit to keep brightness)
       off_after: 1800               # brightness 0 after this long idle (omit to never)
@@ -30,6 +30,7 @@ from PIL import Image, ImageDraw
 from . import widgets
 from .device import H, W
 from .render import THEME, Canvas, theme_override
+from .settings import idle_settings, screensaver_config, splash_seconds
 
 log = logging.getLogger("wigix")
 
@@ -49,6 +50,7 @@ class Overlays:
         self.brightness_override: int | None = None
         self.manual_off = False                       # display paused from the tray / control API
         self.manual_brightness: int | None = None     # brightness set from the tray / control API (until reload)
+        self.idle_override: bool | None = None        # tray switch: False = no dim/screensaver, True = force it on
         self._splash_until = 0.0
         self._firmware = ""
         self._screensaver = None            # (cfg, widget) cache
@@ -58,10 +60,9 @@ class Overlays:
 
     # --- events from the device / touch ----------------------------------------------------
     def device_connected(self, info: dict | None = None):
-        cfg = self.dash.cfg.get("splash", {})
-        if cfg is False:
+        secs = splash_seconds(self.dash.cfg)
+        if secs is None:
             return
-        secs = float((cfg or {}).get("seconds", 1.5)) if isinstance(cfg, dict) or cfg in (None, True) else 1.5
         self._firmware = (info or {}).get("firmware", "")
         self._splash_until = time.time() + secs
 
@@ -116,8 +117,8 @@ class Overlays:
         if self.manual_off:                       # a paused display stays off, whatever idle/touch say
             self.idle, self.brightness_override = False, 0
             return
-        cfg = self.dash.cfg.get("idle")
-        if not cfg:
+        cfg = idle_settings(self.dash.cfg, self.idle_override)
+        if cfg is None:
             self.idle, self.brightness_override = False, None
             return
         after = float(cfg.get("after", 300))
@@ -187,8 +188,7 @@ class Overlays:
         return None
 
     def _screensaver_cfg(self):
-        cfg = (self.dash.cfg.get("idle") or {}).get("screensaver", {"type": "screensaver"})
-        return None if cfg is False else cfg
+        return screensaver_config(self.dash.cfg, self.idle_override)
 
     def frame(self) -> Image.Image | None:
         """The overlay image to show instead of the page, or None."""
