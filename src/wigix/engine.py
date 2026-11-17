@@ -107,6 +107,47 @@ class Page:
         return img
 
 
+class Gesture:
+    """Turns raw touch samples into taps and swipes.
+
+    The panel's digitiser sometimes reports a lift in the middle of a quick drag (and a missing sample looks like one),
+    so a lift is only believed once no finger has come back for ``GRACE`` seconds; a touch that comes back inside that
+    window continues the same gesture. A swipe fires as soon as the drag is clearly horizontal and ``SWIPE_PX`` long. A
+    tap needs a short touch whose finger never strayed more than ``TAP_PX`` from where it landed."""
+    SWIPE_PX, TAP_PX, TAP_SECS, GRACE = 70, 30, 1.0, 0.10
+
+    def __init__(self):
+        self.start = None             # (x, y, time) where the finger landed
+        self.straying = 0             # furthest the finger got from there
+        self.swiped = False
+        self.lift_at = None
+
+    def feed(self, down: bool, x: int, y: int, now: float, swipe: bool = True) -> list:
+        out = self.tick(now)                               # a lift that was already past its grace period settles first
+        if not down:
+            if self.start is not None and self.lift_at is None:
+                self.lift_at = now
+            return out
+        self.lift_at = None
+        if self.start is None:
+            self.start, self.straying, self.swiped = (x, y, now), 0, False
+        dx, dy = x - self.start[0], y - self.start[1]
+        self.straying = max(self.straying, abs(dx), abs(dy))
+        if not self.swiped and swipe and abs(dx) > self.SWIPE_PX and abs(dx) > 1.5 * abs(dy):
+            self.swiped = True
+            out.append(("swipe", "next_page" if dx < 0 else "prev_page"))
+        return out
+
+    def tick(self, now: float) -> list:
+        """Settle a lift that nobody contradicted: a tap, or nothing."""
+        if self.start is None or self.lift_at is None or now - self.lift_at < self.GRACE:
+            return []
+        x, y, t0 = self.start
+        tap = (not self.swiped and self.straying < self.TAP_PX and self.lift_at - t0 < self.TAP_SECS)
+        self.start, self.lift_at, self.swiped = None, None, False
+        return [("tap", x, y)] if tap else []
+
+
 class Dashboard:
     def __init__(self, cfg: dict, path=None):
         widgets.load_plugins(cfg.get("plugin_dirs", []))
@@ -181,8 +222,6 @@ class Dashboard:
                 threading.Thread(target=self._worker, args=(w,), daemon=True).start()
 
     # --- touch -------------------------------------------------------------------------------
-    SWIPE_PX, TAP_PX, TAP_SECS = 90, 30, 1.0
-
     def goto(self, target):
         self._wake.set()
         self._page_since = time.time()
@@ -302,8 +341,20 @@ class Dashboard:
     def in_close_corner(x, y):
         return x > W - 80 and y < 80
 
+    def _gesture_event(self, ev):
+        if ev[0] == "swipe":
+            self._last_action = time.time()
+            if self.overlays.popup_active():
+                self.overlays.close_popup()
+            elif self.full is not None:
+                self.run_action("close")
+            else:
+                self.goto(ev[1])
+        elif ev[0] == "tap":
+            self.handle_tap(ev[1], ev[2])
+
     def _touch_loop(self):
-        start, swiped, raw, swallow = None, False, None, False
+        gesture, raw, swallow = Gesture(), None, False
         while not self._stop.is_set():
             dev = self.dev
             if dev is None:
@@ -314,19 +365,22 @@ class Dashboard:
             except Exception:
                 time.sleep(0.2)
                 continue
+            now = time.time()
             if t is None:
+                for ev in gesture.tick(now):             # a lift that stayed a lift: decide tap or nothing
+                    self._gesture_event(ev)
                 time.sleep(0.016)
                 continue
-            if t.down and start is None and not swallow:
+            if t.down and gesture.start is None and raw is None and not swallow:
                 swallow = self.overlays.on_touch(True)           # waking from idle: this touch is only a wake-up
             elif t.down:
-                self.overlays.last_touch = time.time()
+                self.overlays.last_touch = now
             if swallow:
                 if not t.down:
                     swallow = False
                 time.sleep(0.008)
                 continue
-            if t.down and start is None:              # a new touch begins: raw-touch widgets take it over
+            if t.down and raw is None and gesture.start is None:     # a new touch begins: raw-touch widgets take it over
                 w = self.touch_target(t.x, t.y)
                 raw = w if (w is not None and w.wants_touch and not self.in_close_corner(t.x, t.y)) else None
             if raw is not None:
@@ -336,33 +390,11 @@ class Dashboard:
                     log.exception("on_touch failed")
                 self._wake.set()
                 if not t.down:
-                    raw, start = None, None
-                else:
-                    start = start or (t.x, t.y, time.time())
+                    raw = None
                 time.sleep(0.008)
                 continue
-            if t.down:
-                if start is None:
-                    start, swiped = (t.x, t.y, time.time()), False
-                last = (t.x, t.y)
-                dx, dy = t.x - start[0], t.y - start[1]
-                # fire as soon as the drag is clearly horizontal and long enough
-                if (not swiped and self.cfg.get("swipe", True) and abs(dx) > self.SWIPE_PX
-                        and abs(dx) > 1.5 * abs(dy)):
-                    swiped = True
-                    self._last_action = time.time()
-                    if self.overlays.popup_active():
-                        self.overlays.close_popup()
-                    elif self.full is not None:
-                        self.run_action("close")
-                    else:
-                        self.goto("next_page" if dx < 0 else "prev_page")
-            elif start is not None:
-                dx, dy, dt = last[0] - start[0], last[1] - start[1], time.time() - start[2]
-                if (not swiped and abs(dx) < self.TAP_PX and abs(dy) < self.TAP_PX
-                        and dt < self.TAP_SECS):
-                    self.handle_tap(*start[:2])
-                start = None
+            for ev in gesture.feed(t.down, t.x, t.y, now, swipe=self.cfg.get("swipe", True)):
+                self._gesture_event(ev)
             time.sleep(0.008)
 
     def control_state(self) -> dict:

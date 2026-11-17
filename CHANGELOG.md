@@ -4,6 +4,10 @@ All notable changes to wigix. Versions follow [semantic versioning](https://semv
 
 ## Unreleased
 
+- **Touch**: swiping no longer taps (and zooms into) the card under your finger. A lift now has to last 0.1 s before it counts,
+  so a dropped touch sample in the middle of a drag no longer ends the gesture early; a tap also has to stay put the whole
+  time, and a swipe fires after 70 px (was 90).
+
 - **Settings that were missing**: switch the screensaver and dimming off (`idle: false` or `enabled: false`) or keep just
   the dimming (`screensaver: false`); rotate through pages automatically with `rotate:` (per-page `seconds` and
   `rotate: false`, holds still while you touch the panel); `page_dots`; `swipe` and `splash` toggles in the editor.
