@@ -59,19 +59,57 @@ input.sw{appearance:none;-webkit-appearance:none;width:36px;height:20px;border-r
 .preset{display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;text-align:left}
 .preset.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.preset .dots{display:flex;gap:3px}.preset i{width:14px;height:14px;border-radius:50%;display:block;border:1px solid rgba(128,128,128,.3)}
 .preset b{font-weight:500;font-size:12px}
+
+:root{--r:12px;--shadow:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.18)}
+body{font-size:14px}
+header{gap:8px 10px;padding:8px 14px;box-shadow:0 1px 0 var(--line)}
+.grp{display:flex;align-items:center;gap:6px;padding:0 10px;border-left:1px solid var(--line)}.grp:first-of-type{border-left:0;padding-left:0}
+.grp label{margin:0;display:flex;align-items:center;gap:6px;white-space:nowrap}.grp input[type=number]{width:54px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--dim);max-width:170px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}.pill.ok i{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#msg{padding:3px 10px;border-radius:999px;background:transparent}#msg:not(:empty){background:var(--card);border:1px solid var(--line)}
+button.primary{box-shadow:0 2px 10px rgba(86,156,255,.35)}button.primary.dirty::after{content:" ●";font-size:10px;vertical-align:middle}
+button.icon{padding:4px 9px;min-width:32px}
+aside.left{padding:10px;display:flex;flex-direction:column;gap:8px}#psearch{width:100%}#palette{overflow:auto;flex:1;margin:0 -4px;padding:0 4px}
+.pcat{margin:0 0 8px}.pcat>summary{cursor:pointer;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:4px 2px;list-style:none;display:flex;align-items:center;gap:6px}
+.pcat>summary::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c,var(--accent))}.pcat>summary::-webkit-details-marker{display:none}
+.pal{cursor:grab;border-left:3px solid var(--c,var(--accent));padding:6px 9px;margin:0 0 5px;background:var(--card);transition:transform .08s,border-color .15s}
+.pal:hover{transform:translateX(2px)}.pal:active{cursor:grabbing}.pal b{font-weight:600}
+.stage{gap:12px}.tabs{gap:6px}.tab{position:relative;user-select:none;transition:background .15s,border-color .15s}
+.tab[draggable=true]{cursor:grab}.tab.drop{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);background:rgba(86,156,255,.18)}.tab.dragging{opacity:.4}
+.tab input{width:9em;padding:0 4px;background:transparent;border:0;border-bottom:1px solid #fff;color:inherit;border-radius:0}
+#frame{box-shadow:var(--shadow);border-radius:var(--r)}
+#frame.dropping{outline:2px dashed var(--accent);outline-offset:3px}
+.cell{border-color:rgba(128,140,160,.18)}
+.ghost{position:absolute;border:2px dashed var(--accent);background:rgba(86,156,255,.16);border-radius:10px;pointer-events:none;transition:left .06s,top .06s}
+.ghost.clash,.wb.clash{border-color:var(--warn);background:rgba(245,190,60,.18)}
+.wb{transition:background .12s,box-shadow .12s}.wb:hover{background:rgba(86,156,255,.12)}.wb.sel{box-shadow:0 0 0 3px rgba(86,156,255,.25)}
+.wb .lbl{max-width:calc(100% - 14px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:5px;padding:1px 7px}
+.wb .lbl em{font-style:normal;opacity:.75;margin-left:6px}
+.wb .wx{position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:50%;padding:0;line-height:20px;text-align:center;background:rgba(0,0,0,.65);color:#fff;border:0;display:none;font-size:14px}
+.wb.sel .wx{display:block}.wb .wx:hover{background:var(--crit)}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#8a93a3;pointer-events:none;text-align:center;font-size:15px}
+.empty b{font-size:18px;color:#c8d0de}
+.help kbd{background:var(--card);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:11px ui-monospace,monospace;color:var(--text)}
+.hint{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--dim);font-size:12px}
+.badge{margin-left:auto;font-size:11px;text-transform:none;letter-spacing:0;background:var(--accent);color:#fff;border-radius:999px;padding:0 8px}
+aside.right .card2{margin-bottom:12px}
+.icard{border-radius:var(--r)}
+@media (max-width:760px){.grp{border:0;padding:0}}
 </style></head><body>
-<header><h1>Wigix editor</h1>
- <label style="margin:0">Grid <input id="cols" type="number" min="1" max="8" style="width:56px"> × <input id="rows" type="number" min="1" max="6" style="width:56px"></label>
- <label style="margin:0">Gap <input id="gap" type="number" min="0" max="40" style="width:56px"></label>
- <label style="margin:0">Brightness <input id="bright" type="range" min="5" max="100" style="width:110px;vertical-align:middle"> <span id="brv"></span></label>
- <button id="undo" title="Undo (Ctrl+Z)">Undo</button><button id="redo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+<header><h1>Wigix editor</h1><span id="pill" class="pill" title="Whether the daemon is running this editor"><i></i><span>…</span></span>
+ <div class="grp"><label>Grid <input id="cols" type="number" min="1" max="8"> × <input id="rows" type="number" min="1" max="6"></label>
+  <label>Gap <input id="gap" type="number" min="0" max="40"></label></div>
+ <div class="grp"><label title="Panel brightness">☀ <input id="bright" type="range" min="5" max="100" style="width:90px"> <span id="brv" style="min-width:3.2em"></span></label></div>
+ <div class="grp"><button id="undo" class="icon" title="Undo (Ctrl+Z)">↶</button><button id="redo" class="icon" title="Redo (Ctrl+Shift+Z)">↷</button></div>
+ <div class="grp" id="live" hidden><button id="c-prev" class="icon" title="Show the previous page on the panel">◀</button><button id="c-pause" class="icon" title="Pause or resume the panel">⏸</button><button id="c-next" class="icon" title="Show the next page on the panel">▶</button></div>
  <span class="spacer"></span><span id="msg" role="status"></span>
  <button id="reload">Revert</button><button id="save" class="primary" title="Ctrl+S">Save &amp; apply</button></header>
 <main>
- <aside class="left"><h2>Add widget</h2><div id="palette"></div></aside>
+ <aside class="left"><h2>Add widget</h2><input id="psearch" type="search" placeholder="Search widgets…" aria-label="Search widgets"><div id="palette"></div></aside>
  <section class="stage"><div class="tabs" id="tabs"></div>
   <div id="frame"><img id="img" alt=""><div id="perr"></div></div>
-  <div class="help">Drag a widget to move it, drag its corner to resize. Arrow keys move the selected widget (Shift resizes), Delete removes it, Ctrl+D duplicates, Ctrl+Z undoes, Ctrl+S saves. Preview uses live data.</div>
+  <div class="hint"><span>Drag from the list onto the preview to add</span><span>drag a widget to move it, its corner to resize</span><span>drop it on a page tab to move it there</span><span><kbd>←↑↓→</kbd> nudge (<kbd>Shift</kbd> resizes)</span><span><kbd>Del</kbd> remove</span><span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate</span><span><kbd>Ctrl</kbd>+<kbd>S</kbd> save</span><span>double-click a tab to rename it</span></div>
   <details id="yamlbox"><summary>Raw YAML</summary>
    <textarea id="ytext" spellcheck="false" aria-label="Raw YAML"></textarea>
    <div class="row"><button id="yapply" class="small" disabled>Apply to form</button><button id="yreset" class="small">Reset from form</button><span id="ystat"></span></div>
@@ -115,13 +153,25 @@ async function load(){cfg=await (await fetch('/api/config')).json();cfg.pages=cf
  meta=await (await fetch('/api/meta')).json();
  saved=JSON.stringify(cfg);hist=[saved];hpos=0;lastCommit={key:'',t:0};page=0;sel=null;
  buildPalette();renderAll();histUi();preview(1.5);msg('');pollStatus();yamlRefresh(true)}
-function buildPalette(){const p=$('#palette');p.innerHTML='';Object.values(types).forEach(t=>p.append(el('button',{className:'pal',onclick:()=>addWidget(t.type)},t.type,el('small',{title:t.doc.split('\n')[0]},t.doc.split('\n')[0]))))}
+const CATS=[['Monitoring','#4ad682',/^(system|node|proxmox|unraid|docker_containers|prom_|dns_stats|unifi|uptime_kuma|checks|alertmanager_alerts|json_)/],
+ ['Home Assistant','#569cff',/^(ha_|air$)/],['Display & media','#c084fc',/^(clock|weather|calendar_agenda|text|image|camera|video|media_player|audio_visualizer|screensaver)/],
+ ['Controls & fun','#f5be3c',/^(button|macro_pad|draw_pad|game_|snake|printer)/]];
+const catOf=t=>CATS.find(c=>c[2].test(t))||['Other','#8a93a3'];
+let dragType=null;
+function buildPalette(){const p=$('#palette'),q=($('#psearch').value||'').trim().toLowerCase();p.innerHTML='';
+ const groups={};Object.values(types).forEach(t=>{const doc=t.doc.split('\n')[0];if(q&&!(t.type+' '+doc).toLowerCase().includes(q))return;(groups[catOf(t.type)[0]]=groups[catOf(t.type)[0]]||[]).push(t)});
+ [...CATS,['Other','#8a93a3']].forEach(([name,color])=>{const g=groups[name];if(!g)return;
+  const d=el('details',{className:'pcat',open:true,style:'--c:'+color},el('summary',{},name+' · '+g.length));
+  g.forEach(t=>{const doc=t.doc.split('\n')[0],b=el('button',{className:'pal',draggable:true,dataset:{type:t.type},title:doc+'  (click to add, or drag onto the preview)',onclick:()=>addWidget(t.type)},el('b',{},t.type),el('small',{},doc));
+   b.ondragstart=e=>{dragType=t.type;e.dataTransfer.setData('text/plain','wigix:'+t.type);e.dataTransfer.effectAllowed='copy'};b.ondragend=()=>{dragType=null;clearGhost()};d.append(b)});p.append(d)});
+ if(!p.children.length)p.append(el('div',{className:'help'},'No widget matches “'+q+'”.'))}
+$('#psearch').oninput=buildPalette;
 
 // --- widgets -----------------------------------------------------------------------------------
 function freeSpot(cs=1,rs=1){const g=grid(),used=new Set();P().widgets.forEach(w=>{const[c,r,a,b]=w.at||[0,0,1,1];for(let i=0;i<a;i++)for(let j=0;j<b;j++)used.add((c+i)+','+(r+j))});
  for(let r=0;r+rs<=g.rows;r++)for(let c=0;c+cs<=g.cols;c++){let ok=true;for(let i=0;i<cs&&ok;i++)for(let j=0;j<rs;j++)if(used.has((c+i)+','+(r+j))){ok=false;break}if(ok)return[c,r,cs,rs]}
  return null}
-function addWidget(type){const w={type,at:freeSpot()||[0,0,1,1]};(types[type].fields||[]).forEach(f=>{if(f.default!==undefined&&f.default!==''&&f.type!=='bool')w[f.name]=f.default});
+function addWidget(type,at){const w={type,at:at||freeSpot()||[0,0,1,1]};(types[type].fields||[]).forEach(f=>{if(f.default!==undefined&&f.default!==''&&f.type!=='bool')w[f.name]=f.default});
  P().widgets.push(w);sel=w;commit();render();preview(1.5)}
 function duplicateWidget(){if(!sel)return;const w=JSON.parse(JSON.stringify(sel)),[c,r,cs,rs]=sel.at||[0,0,1,1],spot=freeSpot(cs,rs);
  w.at=spot||[c,r,cs,rs];P().widgets.push(w);sel=w;commit();render();preview();if(!spot)msg('no free cell: the copy sits on top of the original','warn')}
@@ -131,23 +181,52 @@ function nudge(dc,dr,resize){if(!sel)return;const g=grid();let[c,r,cs,rs]=sel.at
  if(same(sel.at,[c,r,cs,rs]))return;sel.at=[c,r,cs,rs];commit('nudge');render();preview()}
 
 // --- stage -------------------------------------------------------------------------------------
+const wlabel=w=>{const d=w.title||w.name||w.entity||(w.text&&String(w.text).slice(0,22))||'';return d};
+const overlaps=(at,except)=>P().widgets.some(o=>o!==except&&(()=>{const[a,b,c,d]=at,[e,f,g,h]=o.at||[0,0,1,1];return a<e+g&&e<a+c&&b<f+h&&f<b+d})());
+let tabDrag=null;
 function render(){ // page tabs, grid overlay, inspector
- const tb=$('#tabs');tb.innerHTML='';cfg.pages.forEach((p,i)=>tb.append(el('span',{className:'tab'+(i==page?' on':''),onclick:()=>{page=i;sel=null;render();preview()}},p.name||('Page '+(i+1)))));
+ const tb=$('#tabs');tb.innerHTML='';
+ cfg.pages.forEach((p,i)=>{const t=el('span',{className:'tab'+(i==page?' on':''),draggable:true,dataset:{i},title:'Click to open, double-click to rename, drag to reorder',onclick:()=>{if(page===i)return;page=i;sel=null;render();preview()},
+   ondblclick:()=>renameTab(i,t)},p.name||('Page '+(i+1)));
+  t.ondragstart=e=>{tabDrag=i;t.classList.add('dragging');e.dataTransfer.setData('text/plain','wigix-page:'+i);e.dataTransfer.effectAllowed='move'};
+  t.ondragend=()=>{tabDrag=null;render()};
+  t.ondragover=e=>{if(tabDrag!==null||dragType){e.preventDefault();t.classList.add('drop')}};t.ondragleave=()=>t.classList.remove('drop');
+  t.ondrop=e=>{e.preventDefault();t.classList.remove('drop');
+   if(dragType){page=i;sel=null;addWidget(dragType);dragType=null;return}
+   if(tabDrag!==null&&tabDrag!==i){const cur=cfg.pages[page],m=cfg.pages.splice(tabDrag,1)[0];cfg.pages.splice(i,0,m);page=cfg.pages.indexOf(cur);tabDrag=null;commit();render();preview()}};
+  tb.append(t)});
  tb.append(el('button',{onclick:()=>{cfg.pages.push({name:'Page '+(cfg.pages.length+1),grid:{cols:4,rows:3,gap:10},widgets:[]});page=cfg.pages.length-1;sel=null;commit();render();preview()}},'+ page'));
  $('#bright').value=cfg.brightness??100;$('#brv').textContent=(cfg.brightness??100)+'%';const g=grid();$('#cols').value=g.cols;$('#rows').value=g.rows;$('#gap').value=g.gap;
- const f=$('#frame');f.querySelectorAll('.cell,.wb').forEach(x=>x.remove());
+ const f=$('#frame');f.querySelectorAll('.cell,.wb,.ghost,.empty').forEach(x=>x.remove());
  for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++){const d=el('div',{className:'cell'});place(d,[c,r,1,1]);f.append(d)}
- P().widgets.forEach(w=>{const b=el('div',{className:'wb'+(w===sel?' sel':''),title:w.type},el('span',{className:'lbl'},w.type),el('span',{className:'rz'}));place(b,w.at||[0,0,1,1]);
-  b.onpointerdown=e=>startDrag(e,w,b);f.append(b)});
+ P().widgets.forEach(w=>{const lab=wlabel(w),b=el('div',{className:'wb'+(w===sel?' sel':''),title:w.type+(lab?' · '+lab:'')},
+   el('span',{className:'lbl'},w.type,...(lab?[el('em',{},lab)]:[])),el('button',{className:'wx',title:'Remove (Del)',onpointerdown:e=>e.stopPropagation(),onclick:e=>{e.stopPropagation();sel=w;removeWidget()}},'×'),el('span',{className:'rz'}));
+  place(b,w.at||[0,0,1,1]);b.onpointerdown=e=>startDrag(e,w,b);f.append(b)});
+ if(!P().widgets.length)f.append(el('div',{className:'empty'},el('b',{},'This page is empty'),el('span',{},'Drag a widget from the list, or click one to add it')));
  if(tab==='inspector')inspector()}
+function renameTab(i,t){const inp=el('input',{type:'text',value:cfg.pages[i].name||'',onclick:e=>e.stopPropagation()});t.draggable=false;t.replaceChildren(inp);inp.focus();inp.select();
+ const done=ok=>{if(ok&&inp.value.trim()){cfg.pages[i].name=inp.value.trim();commit()}render()};inp.onblur=()=>done(true);inp.onkeydown=e=>{if(e.key==='Enter')done(true);if(e.key==='Escape'){inp.onblur=null;done(false)}}}
+// --- dropping a palette widget onto the preview
+function cellAt(e,cs=1,rs=1){const fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,x=(e.clientX-fr.left)*k,y=(e.clientY-fr.top)*k,g=grid(),cw=(FW-g.gap*(g.cols+1))/g.cols,ch=(FH-g.gap*(g.rows+1))/g.rows;
+ return [Math.max(0,Math.min(g.cols-cs,Math.floor((x-g.gap/2)/(cw+g.gap)))),Math.max(0,Math.min(g.rows-rs,Math.floor((y-g.gap/2)/(ch+g.gap)))),cs,rs]}
+function showGhost(at){let gh=$('#frame .ghost');if(!gh){gh=el('div',{className:'ghost'});$('#frame').append(gh)}place(gh,at);gh.classList.toggle('clash',overlaps(at))}
+function clearGhost(){document.querySelectorAll('#frame .ghost').forEach(x=>x.remove());$('#frame').classList.remove('dropping')}
+$('#frame').ondragover=e=>{if(!dragType)return;e.preventDefault();e.dataTransfer.dropEffect='copy';$('#frame').classList.add('dropping');showGhost(cellAt(e))};
+$('#frame').ondragleave=e=>{if(!$('#frame').contains(e.relatedTarget))clearGhost()};
+$('#frame').ondrop=e=>{if(!dragType)return;e.preventDefault();const at=cellAt(e),t=dragType;dragType=null;clearGhost();addWidget(t,at)};
 function renderAll(){render();panelTabs();intPanel();settingsPanel()}
-function startDrag(e,w,b){e.preventDefault();sel=w;const resize=e.target.classList.contains('rz'),fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,o0=geo(w.at),at0=[...w.at];
+function startDrag(e,w,b){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();sel=w;const resize=e.target.classList.contains('rz'),fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,o0=geo(w.at),at0=[...w.at];
  document.querySelectorAll('.wb').forEach(x=>x.classList.toggle('sel',x===b));if(tab==='inspector')inspector();
- const sx=e.clientX,sy=e.clientY,g=o0.g,cwp=o0.cw+g.gap,chp=o0.ch+g.gap;
+ const sx=e.clientX,sy=e.clientY,g=o0.g,cwp=o0.cw+g.gap,chp=o0.ch+g.gap;let overTab=null;
  const mv=ev=>{const dc=Math.round((ev.clientX-sx)*k/cwp),dr=Math.round((ev.clientY-sy)*k/chp);let[c,r,cs,rs]=at0;
   if(resize){cs=Math.max(1,Math.min(g.cols-c,cs+dc));rs=Math.max(1,Math.min(g.rows-r,rs+dr))}else{c=Math.max(0,Math.min(g.cols-cs,c+dc));r=Math.max(0,Math.min(g.rows-rs,r+dr))}
-  w.at=[c,r,cs,rs];place(b,w.at)};
- const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);const moved=!same(at0,w.at);if(moved)commit();render();if(moved)preview()};
+  w.at=[c,r,cs,rs];place(b,w.at);b.classList.toggle('clash',overlaps(w.at,w));
+  const t=!resize&&document.elementFromPoint(ev.clientX,ev.clientY);const tabEl=t&&t.closest&&t.closest('.tab');
+  document.querySelectorAll('.tab.drop').forEach(x=>x.classList.remove('drop'));overTab=tabEl&&Number(tabEl.dataset.i)!==page?Number(tabEl.dataset.i):null;if(overTab!==null)tabEl.classList.add('drop')};
+ const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);document.querySelectorAll('.tab.drop').forEach(x=>x.classList.remove('drop'));
+  if(overTab!==null){w.at=at0;const src=P().widgets;src.splice(src.indexOf(w),1);const from=page;page=overTab;const sp=freeSpot(at0[2],at0[3]);w.at=sp||[Math.min(at0[0],grid().cols-1),Math.min(at0[1],grid().rows-1),1,1];
+   P().widgets.push(w);sel=w;commit();render();preview();msg('moved to “'+(P().name||'page')+'”'+(sp?'':' (no free cell: it overlaps)'),sp?'':'warn');return}
+  const moved=!same(at0,w.at);if(moved)commit();render();if(moved)preview()};
  addEventListener('pointermove',mv);addEventListener('pointerup',up)}
 
 // --- shared form fields (widgets and integrations) ----------------------------------------------
@@ -185,28 +264,30 @@ function themeFields(box,owner,changed){const base=baseTheme(owner);
 
 // --- inspector ---------------------------------------------------------------------------------
 function inspector(){const box=$('#p-inspector');box.innerHTML='';
- box.append(el('h2',{},'Page'),el('label',{},'Name'),el('input',{id:'pname',type:'text',value:P().name||'',onchange:e=>{P().name=e.target.value;commit();render()}}));
- box.append(el('div',{className:'row',style:'margin-top:8px'},
+ const pc=el('div',{className:'card2'});
+ pc.append(el('h2',{},'Page'),el('label',{},'Name'),el('input',{id:'pname',type:'text',value:P().name||'',onchange:e=>{P().name=e.target.value;commit();render()}}));
+ pc.append(el('div',{className:'row',style:'margin-top:8px'},
   el('button',{title:'Move page left',disabled:page===0,onclick:()=>movePage(-1)},'◀ Move'),el('button',{title:'Move page right',disabled:page===cfg.pages.length-1,onclick:()=>movePage(1)},'Move ▶'),
   el('button',{className:'danger',id:'delpage',onclick:delPage},'Delete page')));
  const rot=rotation();
- box.append(el('label',{className:'trow'},el('span',{},'Include in auto-rotation'),el('input',{id:'pinrot',type:'checkbox',className:'sw',checked:P().rotate!==false,onchange:e=>{if(e.target.checked)delete P().rotate;else P().rotate=false;commit();inspector()}})),
+ pc.append(el('label',{className:'trow'},el('span',{},'Include in auto-rotation'),el('input',{id:'pinrot',type:'checkbox',className:'sw',checked:P().rotate!==false,onchange:e=>{if(e.target.checked)delete P().rotate;else P().rotate=false;commit();inspector()}})),
   el('label',{},'Stay for (seconds)'),el('input',{id:'pdwell',type:'number',min:1,max:3600,disabled:P().rotate===false,value:P().seconds??'',placeholder:String(rot.seconds)+' (global)',
    onchange:e=>{if(e.target.value==='')delete P().seconds;else P().seconds=Math.max(1,Number(e.target.value));commit()}}));
- box.append(el('h2',{style:'margin-top:18px'},'Widget'));
- if(!sel||!P().widgets.includes(sel)){box.append(el('div',{className:'help'},'Select a widget on the preview.'));return}
- const t=types[sel.type]||{fields:[],doc:''};box.append(el('div',{className:'help'},t.doc.split('\n')[0]));
- (t.fields||[]).forEach(f=>fieldRow(box,f,sel,()=>{commit();preview()}));
- box.append(el('label',{},'on tap'));const opts=['','next_page','prev_page','fullscreen',...cfg.pages.map(p=>'page:'+p.name),'custom (JSON)'];
+ box.append(pc);
+ const wc=el('div',{className:'card2'});box.append(wc);
+ if(!sel||!P().widgets.includes(sel)){wc.append(el('h2',{},'Widget'),el('div',{className:'help'},'Select a widget on the preview to edit it.'));return}
+ const t=types[sel.type]||{fields:[],doc:''};wc.append(el('h2',{},'Widget',el('span',{className:'badge'},sel.type)),el('div',{className:'help'},t.doc.split('\n')[0]));
+ (t.fields||[]).forEach(f=>fieldRow(wc,f,sel,()=>{commit();preview()}));
+ wc.append(el('label',{},'on tap'));const opts=['','next_page','prev_page','fullscreen',...cfg.pages.map(p=>'page:'+p.name),'custom (JSON)'];
  const ot=sel.on_tap,simple=typeof ot==='string'?ot:ot&&ot.page&&Object.keys(ot).length===1?'page:'+ot.page:null;
  const cur=ot===undefined?'':simple!==null&&opts.includes(simple)?simple:'custom (JSON)';
- box.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else if(v==='custom (JSON)')sel.on_tap={};else sel.on_tap=v;commit();inspector();preview()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
- if(cur==='custom (JSON)'){box.append(el('textarea',{value:JSON.stringify(sel.on_tap,null,1),onchange:e=>{try{sel.on_tap=JSON.parse(e.target.value);commit();msg('')}catch(x){msg('invalid JSON in on_tap','err')}}}),
+ wc.append(el('select',{onchange:e=>{const v=e.target.value;if(!v)delete sel.on_tap;else if(v.startsWith('page:'))sel.on_tap={page:v.slice(5)};else if(v==='custom (JSON)')sel.on_tap={};else sel.on_tap=v;commit();inspector();preview()}},...opts.map(o=>el('option',{value:o,selected:o===cur},o||'(nothing)'))));
+ if(cur==='custom (JSON)'){wc.append(el('textarea',{value:JSON.stringify(sel.on_tap,null,1),onchange:e=>{try{sel.on_tap=JSON.parse(e.target.value);commit();msg('')}catch(x){msg('invalid JSON in on_tap','err')}}}),
   el('div',{className:'help'},'e.g. {"command":"firefox"} (needs security.allow_commands), {"url":"https://…"}, {"ha_service":"light.toggle","entity":"light.desk"}, or a list of these'))}
  const th=el('details',{className:'sec',open:!!sel.theme},el('summary',{},'Theme override'));
  th.append(el('div',{className:'help'},'Colors for this widget only; the rest follow the global theme.'));
- themeFields(th,sel,again=>{commit();if(again)inspector();preview()});box.append(th);
- box.append(el('div',{className:'row',style:'margin-top:14px'},el('button',{onclick:duplicateWidget,title:'Ctrl+D'},'Duplicate'),el('button',{className:'danger',onclick:removeWidget,title:'Delete'},'Remove widget')))}
+ themeFields(th,sel,again=>{commit();if(again)inspector();preview()});wc.append(th);
+ wc.append(el('div',{className:'row',style:'margin-top:14px'},el('button',{onclick:duplicateWidget,title:'Ctrl+D'},'Duplicate'),el('button',{className:'danger',onclick:removeWidget,title:'Delete'},'Remove widget')))}
 function movePage(d){const j=page+d;if(j<0||j>=cfg.pages.length)return;[cfg.pages[page],cfg.pages[j]]=[cfg.pages[j],cfg.pages[page]];page=j;commit();render();preview()}
 function delPage(){if(cfg.pages.length<2){msg('need at least one page','err');return}cfg.pages.splice(page,1);page=Math.min(page,cfg.pages.length-1);sel=null;commit();render();preview()}
 let entLoaded=false;
@@ -225,7 +306,12 @@ function dotState(name){const s=(status.integrations||{})[name];
  if(!status.running)return['','not running: the editor is standalone, so there is no live status'];
  if(!s)return['','not in the running config yet (save to apply)'];
  if(s.error)return['crit',s.error];if(s.connected)return['ok','connected'+(s.entities!==undefined?' ('+s.entities+' entities)':'')];return['warn','connecting…']}
-function paintDots(){document.querySelectorAll('[data-dot]').forEach(d=>{const[c,t]=dotState(d.dataset.dot);d.className='dot '+c;d.title=t});
+function paintLive(){const p=$('#pill');p.classList.toggle('ok',!!status.running);p.lastChild.textContent=status.running?'Daemon running'+(status.page_name?' · '+status.page_name:''):'Standalone editor';
+ $('#live').hidden=!status.running;$('#c-pause').textContent=status.paused?'▶':'⏸';$('#c-pause').title=status.paused?'Resume the panel':'Pause the panel (screen off)'}
+const ctl=a=>send('POST','/api/control',{action:a}).then(r=>{if(r&&r.running!==undefined){status=Object.assign(status,r);paintLive()}}).catch(()=>{});
+$('#c-prev').onclick=()=>ctl('prev_page');$('#c-next').onclick=()=>ctl('next_page');$('#c-pause').onclick=()=>ctl('toggle_pause');
+setInterval(()=>$('#save').classList.toggle('dirty',dirty),250);
+function paintDots(){paintLive();document.querySelectorAll('[data-dot]').forEach(d=>{const[c,t]=dotState(d.dataset.dot);d.className='dot '+c;d.title=t});
  const s=$('#intstat');if(s)s.textContent=status.running?'Daemon running, showing page "'+status.page_name+'"':'Daemon: not running (standalone editor)'}
 function intPanel(){const box=$('#p-integrations');box.innerHTML='';cfg.integrations=cfg.integrations||{};
  box.append(el('div',{className:'help',id:'intstat'}));

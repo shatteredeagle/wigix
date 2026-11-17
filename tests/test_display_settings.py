@@ -335,3 +335,57 @@ def test_air_widget_retries_soon_when_ha_is_not_up_yet():
     w = widgets.REGISTRY["air"]({"type": "air", "radon": "r"}, {"integrations": Reg()})
     w.update()
     assert w.interval == 5.0 and w.series == {}
+
+
+def test_editor_drag_and_drop(tmp_path):
+    """Palette -> preview adds a widget in the dropped cell; a widget dropped on another page's tab moves there; tabs
+    reorder by dragging and rename by double click; the palette search filters."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    if not pathlib.Path(CHROME).exists():
+        pytest.skip("google-chrome-stable not installed")
+    url, cfg, srv = serve(tmp_path, "pages:\n- name: A\n  grid: {cols: 4, rows: 3, gap: 10}\n  widgets: []\n"
+                                    "- name: B\n  grid: {cols: 4, rows: 3, gap: 10}\n  widgets: []\n")
+    try:
+        with sync_api.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+            except Exception as e:
+                pytest.skip(f"cannot launch Chrome: {e}")
+            pg = browser.new_context(bypass_csp=True, viewport={"width": 1500, "height": 1000}).new_page()
+            errors = []
+            pg.on("pageerror", lambda e: errors.append(str(e)))
+            pg.goto(f"{url}/?token={TOKEN[0]}")
+            pg.wait_for_selector("#palette button")
+            assert pg.locator(".empty").count() == 1                              # empty-page hint
+            pg.fill("#psearch", "clock")
+            assert pg.locator("#palette button").count() == 1
+            pg.fill("#psearch", "")
+            fr = pg.locator("#frame").bounding_box()
+            pg.drag_and_drop("#palette button[data-type=clock]", "#frame",
+                             target_position={"x": fr["width"] * 0.8, "y": fr["height"] * 0.8})   # bottom-right cell
+            pg.wait_for_selector(".wb")
+            assert pg.locator(".empty").count() == 0
+            pg.keyboard.press("Control+s")
+            pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('saved')")
+            import yaml
+            at = yaml.safe_load(cfg.read_text())["pages"][0]["widgets"][0]["at"]
+            assert at[0] >= 2 and at[1] == 2, at                                 # the dropped cell, not the first free one
+
+            wb = pg.locator(".wb").bounding_box()                                 # drag the widget onto tab B
+            tb = pg.locator(".tab >> nth=1").bounding_box()
+            pg.mouse.move(wb["x"] + wb["width"] / 2, wb["y"] + wb["height"] / 2)
+            pg.mouse.down()
+            pg.mouse.move(tb["x"] + tb["width"] / 2, tb["y"] + tb["height"] / 2, steps=10)
+            pg.mouse.up()
+            assert pg.locator(".tab.on").inner_text() == "B" and pg.locator(".wb").count() == 1
+
+            pg.drag_and_drop(".tab >> nth=1", ".tab >> nth=0")                     # reorder the tabs: B first
+            assert pg.locator(".tab >> nth=0").inner_text() == "B"
+            pg.dblclick(".tab >> nth=0")                                          # rename
+            pg.fill(".tab input", "Renamed")
+            pg.keyboard.press("Enter")
+            assert pg.locator(".tab >> nth=0").inner_text() == "Renamed"
+            browser.close()
+        assert not errors, errors
+    finally:
+        srv.shutdown()

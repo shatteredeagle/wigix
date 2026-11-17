@@ -96,3 +96,12 @@ If the preview cannot be rendered the UI shows the error over the frame rather t
 
 Add its options to `src/wigix/integrations/schemas.py` (same field format as widgets, plus `secret: True` for
 `*_file` path fields and `required: True`). A test fails for any registered integration that has no entry.
+
+
+## Drag and drop
+
+- Drag a widget from the list onto the preview: it lands in the cell you drop on (the dashed outline shows where; amber
+  means it overlaps another widget). Clicking a list entry still adds it in the first free cell.
+- Drag a widget to move it and its corner to resize; drop it on another page's tab to move it to that page.
+- Drag a page tab to reorder the pages, drop a list entry on a tab to add the widget there, double-click a tab to rename.
+- When the editor runs inside the daemon, the header shows its status and ◀ ⏸ ▶ buttons that flip the real panel.
