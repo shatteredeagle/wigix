@@ -6,7 +6,7 @@ import contextlib
 import threading
 from functools import lru_cache
 
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from .settings import resolve_theme
 
@@ -109,6 +109,28 @@ class Canvas:
             self.text((x0 + 14, y0 + 8), title, size=18, color=THEME["dim"])
         return x0 + 14, y0 + (34 if title else 14), x1 - 14, y1 - 12  # inner box
 
+    def frame(self, box, title=None, right=None, style="btop", color=None, right_color=None):
+        """A panel for a machine/tile; returns the inner box. ``style="btop"`` is a thin rounded outline with the
+        title set into the top border (like btop's boxes), ``"card"`` is the filled card. ``right`` is a short
+        status text set into the border's right end."""
+        if style == "card":
+            inner = self.card(box, title)
+            if right:
+                self.text((box[2] - 14, box[1] + 8), right, size=18, color=right_color or THEME["dim"], anchor="ra")
+            return inner
+        x0, y0, x1, y1 = (int(v) for v in box)
+        line = mix(THEME["bg"], THEME["dim"], 0.6)
+        self.d.rounded_rectangle((x0, y0 + 9, x1, y1), radius=10, outline=line, width=2)
+        for text, anchor, x, col, bold in ((title, "la", x0 + 18, color or THEME["accent"], True),
+                                           (right, "ra", x1 - 18, right_color or THEME["dim"], False)):
+            if not text:
+                continue
+            tw = font(17, bold).getlength(str(text))
+            gx = x if anchor == "la" else x - tw
+            self.d.rectangle((gx - 6, y0 + 4, gx + tw + 6, y0 + 16), fill=THEME["bg"])
+            self.text((x, y0), text, size=17, color=col, bold=bold, anchor=anchor)
+        return x0 + 16, y0 + 30, x1 - 16, y1 - 14
+
     def text(self, xy, s, size=20, color=None, bold=False, anchor="la", max_width=None):
         if max_width:  # shrink to fit
             while size > 10 and font(size, bold).getlength(str(s)) > max_width:
@@ -124,6 +146,53 @@ class Canvas:
             self.d.rounded_rectangle((x0, y0, x0 + w, y1), radius=(y1 - y0) // 2,
                                      fill=color or level_color(frac))
 
+    def area(self, box, series, window, vmax=None, color=None, now=None):
+        """A filled line chart of ``series`` ([(unix_time, value)]) over the last ``window`` seconds.
+
+        Drawn on a recessed plate with a faint midline; the fill fades toward the bottom and the newest point
+        gets a dot. ``vmax`` fixes the top of the scale (e.g. 100 for percentages), else it autoscales."""
+        import time as _time
+        x0, y0, x1, y1 = (int(v) for v in box)
+        w, h = x1 - x0, y1 - y0
+        if w < 8 or h < 8:
+            return
+        color = color or THEME["accent"]
+        self.d.rounded_rectangle((x0, y0, x1, y1), radius=7, fill=mix(THEME["card"], THEME["bg"], 0.55))
+        self.d.line((x0 + 6, y0 + h // 2, x1 - 6, y0 + h // 2), fill=mix(THEME["card"], THEME["text"], 0.06), width=1)
+        pts = [(t, v) for t, v in series if v is not None]
+        if len(pts) < 2 or self.image is None:
+            return
+        now = now or _time.time()
+        top = vmax or max(max(v for _, v in pts) * 1.15, 1e-9)
+        pad = 4
+        xy = [(pad + (w - 2 * pad) * max(0.0, min(1.0, 1 - (now - t) / window)),
+               h - pad - (h - 2 * pad) * max(0.0, min(1.0, v / top))) for t, v in pts]
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).polygon(xy + [(xy[-1][0], h), (xy[0][0], h)], fill=255)
+        fade = Image.linear_gradient("L").rotate(180).resize((w, h))           # strong at the top, gone at the bottom
+        mask = ImageChops.multiply(mask, fade.point(lambda p: int(p * 0.42)))
+        corners = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(corners).rounded_rectangle((0, 0, w - 1, h - 1), radius=7, fill=255)
+        self.image.paste(Image.new("RGB", (w, h), color), (x0, y0), ImageChops.multiply(mask, corners))
+        self.d.line([(x0 + x, y0 + y) for x, y in xy], fill=color, width=2, joint="curve")
+        lx, ly = x0 + xy[-1][0], y0 + xy[-1][1]
+        self.d.ellipse((lx - 3, ly - 3, lx + 3, ly + 3), fill=color, outline=THEME["card"])
+
+    def metric(self, box, label, value_text, series, window, frac=None, vmax=None, color=None):
+        """One graph row: label left, value right (coloured by ``frac`` load), area chart filling the rest."""
+        x0, y0, x1, y1 = box
+        col = color or (metric_color(frac) if frac is not None else THEME["accent"])
+        self.text((x0, y0), label, size=16, color=THEME["dim"])
+        self.text((x1, y0 - 2), value_text, size=20, bold=True, color=col if frac is not None else THEME["text"], anchor="ra")
+        self.area((x0, y0 + 24, x1, y1), series, window, vmax=vmax, color=col)
+
+    def meter(self, box, label, value_text, frac):
+        """A slim labelled bar for slow-moving values such as disk usage."""
+        x0, y0, x1, y1 = box
+        self.text((x0, y0), label, size=16, color=THEME["dim"])
+        self.text((x1, y0), value_text, size=16, anchor="ra")
+        self.bar((x0, y0 + 22, x1, y0 + 30), frac)
+
     def spark(self, box, values, vmax=None, color=None):
         x0, y0, x1, y1 = box
         vals = list(values)
@@ -133,6 +202,11 @@ class Canvas:
         pts = [(x0 + (x1 - x0) * i / (len(vals) - 1),
                 y1 - (y1 - y0) * min(v, top) / top) for i, v in enumerate(vals)]
         self.d.line(pts, fill=color or THEME["accent"], width=2)
+
+
+def metric_color(frac: float):
+    """Colour for a 0..1 utilisation: ok below 70 %, warn below 90 %, crit above."""
+    return level_color(frac)
 
 
 def read_secret(value=None, file=None, env=None):

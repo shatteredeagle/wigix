@@ -258,3 +258,38 @@ def test_settings_panel_edits_rotation_and_screensaver(tmp_path):
         assert not errors, errors
     finally:
         srv.shutdown()
+
+
+# --- btop-style tiles ----------------------------------------------------------------------------
+def test_area_chart_and_frame_draw_something():
+    from PIL import Image, ImageDraw
+    from wigix.render import Canvas
+    img = Image.new("RGB", (400, 200), THEME["bg"])
+    cv = Canvas(ImageDraw.Draw(img), img)
+    inner = cv.frame((0, 0, 400, 200), "Box", "right")
+    assert inner[0] > 0 and inner[3] < 200
+    now = time.time()
+    cv.area((20, 40, 380, 180), [(now - 60 + i, 50 + i % 20) for i in range(60)], 60, vmax=100, color=(0, 200, 0), now=now)
+    assert len(img.getcolors(100000)) > 6
+    cv.area((20, 40, 380, 180), [], 60)                      # no data: just the plate, no crash
+
+
+def test_polling_integration_keeps_a_history():
+    from wigix.integrations.polling import PollingIntegration
+    p = PollingIntegration("x", {})
+    p.record("cpu", 5.0, t=10.0)
+    p.record("cpu", None)
+    p.record("cpu", 7)
+    assert [v for _, v in p.series("cpu")] == [5.0, 7.0] and p.series("nope") == []
+
+
+def test_machine_widgets_render_in_both_styles():
+    from PIL import Image, ImageDraw
+    from wigix.render import Canvas
+    for style in ("btop", "card"):
+        w = widgets.REGISTRY["system"]({"type": "system", "style": style}, {})
+        w.update()
+        w.update()
+        img = Image.new("RGB", (493, 285), THEME["bg"])
+        w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 493, 285))
+        assert len(img.getcolors(100000)) > 8

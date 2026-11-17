@@ -6,13 +6,14 @@ import requests
 
 from . import Widget, widget
 from ..integrations.net import tls_verify
+from .system import STYLE
 from ..render import THEME
 
 
 @widget("checks")
 class Checks(Widget):
     """Service up/down board. Config: checks: [{name, http: url} | {name, tcp: "host:port"}], timeout."""
-    fields = [{"name": "title", "type": "string", "default": "Services"}, {"name": "checks", "type": "yaml", "default": [{"name": "Example", "http": "https://example.com"}], "help": "list of {name, http|tcp}"}, {"name": "timeout", "type": "float", "default": 3}]
+    fields = [{"name": "title", "type": "string", "default": "Services"}, {"name": "checks", "type": "yaml", "default": [{"name": "Example", "http": "https://example.com"}], "help": "list of {name, http|tcp}"}, {"name": "timeout", "type": "float", "default": 3}, STYLE]
     interval = 15.0
 
     def __init__(self, cfg, ctx):
@@ -37,10 +38,10 @@ class Checks(Widget):
 
     def draw(self, cv, box):
         down = sum(1 for _, ok in self.results if ok is False)
-        x0, y0, x1, y1 = cv.card(box, self.title or "Services")
         pending = any(ok is None for _, ok in self.results)
-        cv.text((x1, box[1] + 8), "checking" if pending else f"{down} down" if down else "all up", size=18,
-                color=THEME["dim"] if pending else THEME["crit"] if down else THEME["ok"], anchor="ra")
+        x0, y0, x1, y1 = cv.frame(box, self.title or "Services",
+                                  "checking" if pending else f"{down} down" if down else "all up", self.cfg.get("style", "btop"),
+                                  right_color=THEME["dim"] if pending else THEME["crit"] if down else THEME["ok"])
         h = 30
         cols = 2 if len(self.results) * h > (y1 - y0) else 1
         per = (y1 - y0) // h

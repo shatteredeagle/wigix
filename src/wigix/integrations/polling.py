@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import collections
 import threading
 import time
 
@@ -30,6 +31,7 @@ class PollingIntegration(Integration):
         self.error: str | None = None
         self.updated = 0.0
         self.auth_failed = False
+        self.history: dict[str, collections.deque] = {}     # key -> deque of (unix_time, value), for graph widgets
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -39,6 +41,15 @@ class PollingIntegration(Integration):
 
     def poll(self):
         raise NotImplementedError
+
+    def record(self, key: str, value, t: float | None = None, maxlen: int = 400):
+        """Append a sample to the ``key`` history (graph widgets read ``series(key)``)."""
+        if value is None:
+            return
+        self.history.setdefault(key, collections.deque(maxlen=maxlen)).append((t or time.time(), float(value)))
+
+    def series(self, key: str) -> list:
+        return list(self.history.get(key, ()))
 
     def start(self):
         if self._thread:

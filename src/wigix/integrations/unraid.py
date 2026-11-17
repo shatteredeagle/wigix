@@ -36,4 +36,7 @@ class Unraid(PollingIntegration):
         j = r.json()
         if j.get("errors"):
             raise RuntimeError(j["errors"][0]["message"])
+        m = j["data"]["metrics"]
+        self.record("cpu", m["cpu"]["percentTotal"])
+        self.record("mem", m["memory"]["percentTotal"])
         return j["data"]

@@ -38,5 +38,15 @@ class Proxmox(PollingIntegration):
     def poll(self):
         node = self.cfg.get("node") or self._get("/nodes")[0]["node"]
         guests = sorted(self._get("/cluster/resources?type=vm"), key=lambda g: g["vmid"])
-        return {"node": node, "status": self._get(f"/nodes/{node}/status"),
-                "guests": [g for g in guests if g.get("node", node) == node]}
+        if not self.history:                      # backfill the graphs from the node's own last-hour records
+            try:
+                for p in self._get(f"/nodes/{node}/rrddata?timeframe=hour"):
+                    if p.get("cpu") is not None and p.get("memtotal"):
+                        self.record("cpu", p["cpu"] * 100, p["time"])
+                        self.record("mem", p["memused"] / p["memtotal"] * 100, p["time"])
+            except Exception:
+                pass
+        status = self._get(f"/nodes/{node}/status")
+        self.record("cpu", status["cpu"] * 100)
+        self.record("mem", status["memory"]["used"] / status["memory"]["total"] * 100)
+        return {"node": node, "status": status, "guests": [g for g in guests if g.get("node", node) == node]}
