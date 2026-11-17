@@ -8,6 +8,7 @@ thin Qt shell around them. PyQt6 is imported lazily so the rest of the package w
 from __future__ import annotations
 
 import json
+import os
 import logging
 import shutil
 import subprocess
@@ -145,7 +146,8 @@ def status_line(status: dict | None) -> str:
     return f"Panel connected: {status.get('page_name', '')}".rstrip(": ")
 
 
-def build_menu(status: dict | None, has_systemctl: bool = False, autostart: bool | None = None) -> tuple[MenuItem, ...]:
+def build_menu(status: dict | None, has_systemctl: bool = False, autostart: bool | None = None,
+               notifications: bool | None = None) -> tuple[MenuItem, ...]:
     """The menu for a status snapshot; equal specs mean the Qt menu does not need rebuilding."""
     items = [MenuItem("label", status_line(status)), MenuItem("action", "Open editor", "open_editor")]
     if status:
@@ -166,6 +168,8 @@ def build_menu(status: dict | None, has_systemctl: bool = False, autostart: bool
         items.append(MenuItem("action", "Resume display" if paused else "Pause display",
                               "resume" if paused else "pause"))
     items.append(MenuItem("separator"))
+    if notifications is not None:
+        items.append(MenuItem("action", "Desktop notifications", "toggle_notifications", notifications))
     if has_systemctl:
         items.append(MenuItem("action", "Restart daemon", "restart_daemon"))
         if autostart is not None:
@@ -187,9 +191,63 @@ def control_for(key: str) -> tuple[str, dict] | None:
     return None
 
 
-def should_notify(old: str | None, new: str) -> bool:
-    """Notify when the state turns bad (not for the very first reading)."""
-    return old is not None and old != new and new in ("attention", "disconnected")
+BAD_STATES = ("attention", "disconnected")
+
+
+class NotifyPolicy:
+    """When a desktop notification is worth showing.
+
+    A trouble state must last ``delay`` seconds before it is announced (a panel replug, a daemon restart or one
+    integration timing out once all clear themselves well inside that), and the same message is shown at most once per
+    ``cooldown`` seconds however often the state flaps. Recoveries never notify.
+    """
+
+    def __init__(self, enabled=True, delay=120.0, cooldown=3600.0):
+        self.enabled, self.delay, self.cooldown = enabled, float(delay), float(cooldown)
+        self._state, self._since, self._shown = None, 0.0, {}
+
+    def update(self, state: str, message: str, now: float) -> bool:
+        if state != self._state:
+            self._state, self._since = state, now
+        if not self.enabled or state not in BAD_STATES or now - self._since < self.delay:
+            return False
+        if now - self._shown.get(message, float("-inf")) < self.cooldown:
+            return False
+        self._shown[message] = now
+        return True
+
+
+def state_file() -> Path:
+    return Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "wigix" / "tray.json"
+
+
+def notification_settings(cfg: dict | None, override: bool | None = None) -> dict:
+    """{enabled, delay, cooldown} from the config's ``tray:`` block; ``override`` is the menu's saved on/off choice."""
+    t = (cfg or {}).get("tray")
+    t = t if isinstance(t, dict) else {}
+    on = t.get("notifications", True)
+    out = {"enabled": bool(on) if not isinstance(on, dict) else bool(on.get("enabled", True)),
+           "delay": t.get("notify_delay", 120), "cooldown": t.get("notify_cooldown", 3600)}
+    if override is not None:
+        out["enabled"] = override
+    return out
+
+
+def load_override() -> bool | None:
+    try:
+        v = json.loads(state_file().read_text()).get("notifications")
+        return v if isinstance(v, bool) else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def save_override(on: bool) -> None:
+    try:
+        f = state_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps({"notifications": on}))
+    except OSError:
+        log.exception("could not save the notification setting")
 
 
 # --- icons ---------------------------------------------------------------------------------------
@@ -247,6 +305,14 @@ def load_icons(QtGui) -> dict:
     return icons
 
 
+def _safe_config(path) -> dict:
+    try:
+        from .engine import load_config
+        return load_config(path)
+    except Exception:
+        return {}
+
+
 def main(config_path, quiet: bool = False) -> int:
     QtCore, QtGui, QtWidgets = _qt()
     from .editor import editor_url
@@ -281,7 +347,9 @@ def main(config_path, quiet: bool = False) -> int:
     menu = QtWidgets.QMenu()
     tray.setContextMenu(menu)
     from . import autostart as _autostart
-    ui = {"spec": None, "state": None, "busy": False, "status": None, "autostart": _autostart.daemon_enabled()}
+    ui = {"spec": None, "state": None, "busy": False, "status": None, "autostart": _autostart.daemon_enabled(),
+          "override": load_override()}
+    policy = NotifyPolicy(**notification_settings(_safe_config(config_path), ui["override"]))
 
     class Result(QtCore.QObject):
         done = QtCore.pyqtSignal(object)
@@ -319,14 +387,15 @@ def main(config_path, quiet: bool = False) -> int:
     def apply(status):
         ui["status"] = status
         state = tray_state(status)
-        if should_notify(ui["state"], state) and not quiet:
+        policy.enabled = notification_settings(_safe_config(config_path), ui["override"])["enabled"]
+        if not quiet and policy.update(state, tooltip(status).partition("\n")[2], time.monotonic()):
             tray.showMessage("wigix", tooltip(status).partition("\n")[2],
                              QtWidgets.QSystemTrayIcon.MessageIcon.Warning, 5000)
         if state != ui["state"]:
             tray.setIcon(icons[state])
             ui["state"] = state
         tray.setToolTip(tooltip(status))
-        spec = build_menu(status, has_systemctl, ui.get("autostart"))
+        spec = build_menu(status, has_systemctl, ui.get("autostart"), None if quiet else policy.enabled)
         if spec != ui["spec"]:
             menu.clear()
             populate_menu(menu, spec, on_action)
@@ -350,6 +419,10 @@ def main(config_path, quiet: bool = False) -> int:
             on = bool(ui.get("autostart"))
             _auto.disable(say=lambda *_: None, stop_now=False) if on else _auto.enable(str(config_path), tray=None, say=lambda *_: None)
             ui["autostart"] = _auto.daemon_enabled()
+            apply(ui.get("status"))
+        elif key == "toggle_notifications":
+            ui["override"] = not policy.enabled
+            save_override(ui["override"])
             apply(ui.get("status"))
         elif key == "restart_daemon":
             subprocess.Popen(["systemctl", "--user", "restart", "wigix"], stdout=subprocess.DEVNULL,

@@ -33,6 +33,7 @@ Left-click (or right-click) opens the menu; middle-click toggles pause.
 - **Brightness**: 10, 25, 50, 75 or 100 % (the nearest to the current value is ticked)
 - **Auto-rotate pages** and **Screensaver and dimming**: checkable runtime switches (they last until the daemon restarts;
   the config file decides the defaults)
+- **Desktop notifications**: on/off (remembered). Off silences the warnings below.
 - **Pause display** / **Resume display**
 - **Restart daemon**: runs `systemctl --user restart wigix` (only shown if `systemctl` exists)
 - **Quit tray**
@@ -67,3 +68,20 @@ If the daemon is not running, or runs without the editor, the icon shows *discon
   tray from a plain SSH or cron environment, set `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS`.
   Some compositors place the left-click menu at the pointer rather than at the icon.
 - **No notifications**: they use the tray's own message mechanism; check your desktop's do-not-disturb setting.
+
+
+## Notifications
+
+The tray only speaks up when something stays wrong: the panel or daemon unreachable, or an integration failing, for two
+minutes in a row. A blip that clears by itself (replugging the panel, restarting the daemon, one slow request) never
+notifies, the same message is shown at most once an hour, and recoveries are silent. Switch them off from the tray menu
+(**Desktop notifications**) or in the config:
+
+```yaml
+tray:
+  notifications: false     # default true
+  notify_delay: 120        # seconds a problem must last before it is announced
+  notify_cooldown: 3600    # seconds before the same message can appear again
+```
+
+The menu choice is saved in `~/.local/state/wigix/tray.json` and wins over the config file. `wigix tray --quiet` never notifies.

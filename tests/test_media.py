@@ -269,10 +269,10 @@ def test_video_fit_modes_output_widget_size(clip):
 def test_video_resize_restarts_for_fullscreen(clip):
     page, w = make("video", {"source": str(clip)}, grid=(4, 3))
     page.render()
-    assert wait(lambda: w.stream.frame() is not None)
-    assert w.stream.frame()[0].size == (w.box[2] - w.box[0], w.box[3] - w.box[1])
+    size = lambda: (lambda f: f and f[0].size)(w.stream.frame())     # None until the first frame arrives
+    assert wait(lambda: size() == (w.box[2] - w.box[0], w.box[3] - w.box[1]), 15)    # generous: ffmpeg is slow on a busy runner
     page.render(only=w)                                         # fullscreen box
-    assert wait(lambda: w.stream.frame()[0].size == (996, 572))
+    assert wait(lambda: size() == (996, 572), 15)
     w.stream.stop()
 
 

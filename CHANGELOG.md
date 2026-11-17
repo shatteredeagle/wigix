@@ -2,6 +2,11 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- **Tray notifications are calmer**: a problem must last two minutes before it is announced, the same message shows at most
+  once an hour, and recoveries are silent. New "Desktop notifications" switch in the tray menu and a `tray:` config block.
+
 ## 0.2.1 (2026-11-17)
 
 The same code as 0.2.0, released again because the 0.2.0 tag's CI run failed on a test import (a mistake in a test file, not

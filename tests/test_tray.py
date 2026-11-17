@@ -83,10 +83,50 @@ def test_pause_resume_labels_and_control_keys():
     assert tray.control_for("pause") == ("pause", {}) and tray.control_for("quit") is None
 
 
-def test_should_notify():
-    assert not tray.should_notify(None, "disconnected")
-    assert tray.should_notify("connected", "attention") and tray.should_notify("paused", "disconnected")
-    assert not tray.should_notify("attention", "attention") and not tray.should_notify("disconnected", "connected")
+def test_notifications_wait_out_blips_and_do_not_repeat():
+    p = tray.NotifyPolicy(delay=120, cooldown=3600)
+    assert not p.update("connected", "", 0)
+    assert not p.update("attention", "Errors: pve", 10)             # just turned bad: wait
+    assert not p.update("attention", "Errors: pve", 100)
+    assert p.update("attention", "Errors: pve", 131)                # still bad after the delay: announce once
+    assert not p.update("attention", "Errors: pve", 200)
+    p.update("connected", "", 300)
+    p.update("attention", "Errors: pve", 310)                       # flaps back: same message inside the cooldown
+    assert not p.update("attention", "Errors: pve", 500)
+    assert p.update("attention", "Errors: pve, tower", 700) is True  # a different problem is news
+
+
+def test_a_blip_that_clears_never_notifies_and_recovery_is_silent():
+    p = tray.NotifyPolicy(delay=60)
+    assert not p.update("disconnected", "Panel not connected", 0)
+    assert not p.update("disconnected", "Panel not connected", 50)
+    assert not p.update("connected", "", 55)                        # it came back: nothing was shown, nothing to announce
+    assert not p.update("connected", "", 500)
+    assert not p.update("paused", "", 900)
+
+
+def test_notifications_can_be_switched_off_in_config_or_the_menu():
+    assert tray.notification_settings({}) == {"enabled": True, "delay": 120, "cooldown": 3600}
+    assert tray.notification_settings({"tray": {"notifications": False}})["enabled"] is False
+    assert tray.notification_settings({"tray": {"notify_delay": 30}})["delay"] == 30
+    assert tray.notification_settings({"tray": {"notifications": False}}, override=True)["enabled"] is True   # the menu wins
+    p = tray.NotifyPolicy(enabled=False, delay=0)
+    assert not p.update("attention", "x", 1000)
+
+
+def test_notification_choice_is_remembered(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    assert tray.load_override() is None
+    tray.save_override(False)
+    assert tray.load_override() is False
+    tray.save_override(True)
+    assert tray.load_override() is True
+
+
+def test_menu_has_the_notifications_switch_when_asked():
+    on = {m.key: m for m in tray.build_menu({"connected": True, "pages": []}, notifications=True)}
+    assert on["toggle_notifications"].checked is True
+    assert "toggle_notifications" not in {m.key for m in tray.build_menu({"connected": True, "pages": []})}
 
 
 # --- client against a real editor + daemon -------------------------------------------------------
