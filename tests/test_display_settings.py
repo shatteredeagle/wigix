@@ -293,3 +293,32 @@ def test_machine_widgets_render_in_both_styles():
         img = Image.new("RGB", (493, 285), THEME["bg"])
         w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 493, 285))
         assert len(img.getcolors(100000)) > 8
+
+
+def test_air_widget_draws_graphs_with_the_weekly_average():
+    from PIL import Image, ImageDraw
+    from wigix.render import Canvas
+    now = time.time()
+    states = {"r": ("2.68", "pCi/L"), "ra": ("3.14", "pCi/L"), "t": ("64.6", "\u00b0F")}
+
+    class HA:
+        connected, error = True, None
+
+        def state(self, e):
+            return {"state": states[e][0], "attributes": {"unit_of_measurement": states[e][1]}}
+
+        def history_series(self, e, hours, **kw):
+            return [(now - hours * 3600 * (1 - i / 49), 2 + (i % 5) * 0.4) for i in range(50)]
+
+    class Reg:
+        def get(self, *a):
+            return HA()
+
+    w = widgets.REGISTRY["air"]({"type": "air", "radon": "r", "radon_avg": "ra", "temperature": "t"}, {"integrations": Reg()})
+    w.update()
+    assert set(w.series) == {"radon", "temperature"}
+    img = Image.new("RGB", (488, 281), THEME["bg"])
+    w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 488, 281))
+    assert len(img.getcolors(100000)) > 10
+    w2 = widgets.REGISTRY["air"]({"type": "air", "radon": "r"}, {"integrations": type("R", (), {"get": lambda s, *a: (_ for _ in ()).throw(KeyError("x"))})()})
+    w2.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 488, 281))        # no HA integration: a status card, no crash

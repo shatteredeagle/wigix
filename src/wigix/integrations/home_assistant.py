@@ -168,6 +168,31 @@ class HomeAssistant(Integration):
         r.raise_for_status()
         return r.content
 
+    def history_series(self, entity_id: str, hours: float = 24, max_points: int = 240) -> list[tuple[float, float]]:
+        """Numeric history as [(unix_time, value)] for time-based graphs, cached for 5 minutes."""
+        import datetime as dt
+        key = ("series", entity_id, hours)
+        hit = self._history_cache.get(key)
+        if hit and time.time() - hit[0] < 300:
+            return hit[1]
+        start = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - hours * 3600))
+        r = self._rest.get(f"{self.url}/api/history/period/{start}",
+                           params={"filter_entity_id": entity_id, "minimal_response": "1", "no_attributes": "1"},
+                           timeout=20)
+        r.raise_for_status()
+        pts = []
+        for s in (r.json() or [[]])[0]:
+            try:
+                ts = dt.datetime.fromisoformat(str(s.get("last_changed") or s["last_updated"]).replace("Z", "+00:00")).timestamp()
+                pts.append((ts, float(s["state"])))
+            except (ValueError, KeyError, TypeError):
+                continue
+        if len(pts) > max_points:                      # thin evenly, always keeping the newest point
+            step = len(pts) / max_points
+            pts = [pts[int(i * step)] for i in range(max_points - 1)] + [pts[-1]]
+        self._history_cache[key] = (time.time(), pts)
+        return pts
+
     def history(self, entity_id: str, hours: float = 24, max_points: int = 120) -> list[float]:
         """Numeric history for a sparkline, cached for 5 minutes."""
         key = (entity_id, hours)

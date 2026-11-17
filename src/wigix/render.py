@@ -146,7 +146,7 @@ class Canvas:
             self.d.rounded_rectangle((x0, y0, x0 + w, y1), radius=(y1 - y0) // 2,
                                      fill=color or level_color(frac))
 
-    def area(self, box, series, window, vmax=None, color=None, now=None):
+    def area(self, box, series, window, vmax=None, color=None, now=None, autorange=False, lines=()):
         """A filled line chart of ``series`` ([(unix_time, value)]) over the last ``window`` seconds.
 
         Drawn on a recessed plate with a faint midline; the fill fades toward the bottom and the newest point
@@ -163,10 +163,20 @@ class Canvas:
         if len(pts) < 2 or self.image is None:
             return
         now = now or _time.time()
-        top = vmax or max(max(v for _, v in pts) * 1.15, 1e-9)
+        lo, hi = min(v for _, v in pts), max(v for _, v in pts)
+        if autorange:                       # zoom to the data (temperature, pressure): a flat line would be unreadable
+            span = max(hi - lo, abs(hi) * 0.01, 1e-9)
+            floor, top = lo - span * 0.25, hi + span * 0.25
+        else:
+            floor, top = 0.0, vmax or max(hi * 1.15, 1e-9)
         pad = 4
-        xy = [(pad + (w - 2 * pad) * max(0.0, min(1.0, 1 - (now - t) / window)),
-               h - pad - (h - 2 * pad) * max(0.0, min(1.0, v / top))) for t, v in pts]
+        yof = lambda v: h - pad - (h - 2 * pad) * max(0.0, min(1.0, (v - floor) / (top - floor)))
+        xy = [(pad + (w - 2 * pad) * max(0.0, min(1.0, 1 - (now - t) / window)), yof(v)) for t, v in pts]
+        for value, lcolor in lines:         # dashed reference lines (thresholds, averages)
+            if floor <= value <= top:
+                ly = y0 + yof(value)
+                for dx in range(x0 + 6, x1 - 6, 10):
+                    self.d.line((dx, ly, min(dx + 5, x1 - 6), ly), fill=lcolor, width=1)
         mask = Image.new("L", (w, h), 0)
         ImageDraw.Draw(mask).polygon(xy + [(xy[-1][0], h), (xy[0][0], h)], fill=255)
         fade = Image.linear_gradient("L").rotate(180).resize((w, h))           # strong at the top, gone at the bottom
@@ -178,13 +188,15 @@ class Canvas:
         lx, ly = x0 + xy[-1][0], y0 + xy[-1][1]
         self.d.ellipse((lx - 3, ly - 3, lx + 3, ly + 3), fill=color, outline=THEME["card"])
 
-    def metric(self, box, label, value_text, series, window, frac=None, vmax=None, color=None):
+    def metric(self, box, label, value_text, series, window, frac=None, vmax=None, color=None, **area_kw):
         """One graph row: label left, value right (coloured by ``frac`` load), area chart filling the rest."""
         x0, y0, x1, y1 = box
         col = color or (metric_color(frac) if frac is not None else THEME["accent"])
         self.text((x0, y0), label, size=16, color=THEME["dim"])
-        self.text((x1, y0 - 2), value_text, size=20, bold=True, color=col if frac is not None else THEME["text"], anchor="ra")
-        self.area((x0, y0 + 24, x1, y1), series, window, vmax=vmax, color=col)
+        room = x1 - x0 - font(16).getlength(str(label)) - 10         # the value shrinks before it can touch the label
+        self.text((x1, y0 - 2), value_text, size=20, bold=True, color=col if frac is not None else THEME["text"], anchor="ra",
+                  max_width=room)
+        self.area((x0, y0 + 24, x1, y1), series, window, vmax=vmax, color=col, **area_kw)
 
     def meter(self, box, label, value_text, frac):
         """A slim labelled bar for slow-moving values such as disk usage."""

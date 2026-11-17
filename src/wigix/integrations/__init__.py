@@ -38,6 +38,28 @@ class Integration:
         return {"connected": True}
 
 
+class FailedIntegration(Integration):
+    """Stands in for an integration that could not be built (a missing or unreadable token file), so one bad
+    integration shows up as "offline" on the widgets that use it instead of stopping the whole daemon."""
+    connected = False
+    data = None
+    states: dict = {}
+
+    def __init__(self, name: str, cfg: dict, error: str):
+        super().__init__(name, cfg)
+        self.type_name = cfg.get("type", "")
+        self.error = error
+
+    def status(self) -> dict:
+        return {"connected": False, "error": self.error}
+
+    def state(self, entity_id):
+        return None
+
+    def series(self, key):
+        return []
+
+
 def load_builtin():
     for m in pkgutil.iter_modules(__path__):          # every module in this package registers its integrations
         importlib.import_module(f"{__name__}.{m.name}")
@@ -65,7 +87,13 @@ class Registry:
             cls = REGISTRY.get(icfg.get("type"))
             if cls is None:
                 raise ValueError(f"integration {name!r}: unknown type {icfg.get('type')!r}; known: {sorted(REGISTRY)}")
-            self.items[name] = cls(name, icfg)
+            try:
+                self.items[name] = cls(name, icfg)
+            except OSError as e:                       # an unreadable secret file: keep the daemon up
+                from .net import describe_error
+                msg = describe_error(e)
+                log.error("integration %s could not be set up: %s", name, msg)
+                self.items[name] = FailedIntegration(name, icfg, msg)
 
     def start(self):
         for i in self.items.values():

@@ -77,7 +77,11 @@ class FakeHA:
         body = b""
         if path.startswith("/api/history/period/"):
             eid = path.split("filter_entity_id=")[1].split("&")[0]
-            body = json.dumps([[{"state": str(v)} for v in self.history.get(eid, [])]]).encode()
+            import time
+            vals, now = self.history.get(eid, []), time.time()
+            iso = lambda t: time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(t))
+            body = json.dumps([[{"state": str(v), "last_changed": iso(now - (len(vals) - i) * 60)}
+                                for i, v in enumerate(vals)]]).encode()
         return Response(200, "OK", Headers({"Content-Type": "application/json"}), body)
 
     async def _main(self):

@@ -46,3 +46,27 @@ Any widget can also do something on tap through the YAML:
 
 `tests/fake_ha.py` is a small fake HA (websocket auth, states, live events, history) used by the test
 suite (`pip install -e '.[dev]' && pytest`). It is also handy for developing widgets offline.
+
+
+## `air`: radon and room climate graphs
+
+A btop-style panel for an air-quality sensor (built for an Aranet Radon Plus, works with any numeric sensors): one big
+radon graph (a week by default) with dashed lines for the weekly average and the WHO (2.7 pCi/L) and EPA (4 pCi/L)
+action levels, and temperature, humidity and pressure graphs underneath. The radon value is coloured by those levels.
+
+```yaml
+- type: air
+  name: Basement air
+  integration: ha
+  radon: sensor.radon_pci_l
+  radon_avg: sensor.radon_7_day_average_pci_l   # drawn as a dashed line and shown in the title
+  temperature: sensor.aranetrn_3cfd2_temperature
+  humidity: sensor.aranetrn_3cfd2_humidity
+  pressure: sensor.aranetrn_3cfd2_pressure
+  hours: 168          # radon graph length; env_hours: 24 for the climate graphs
+  at: [1, 1, 1, 1]
+```
+
+Every sensor is optional. Levels follow the sensor's unit (pCi/L or Bq/m³); override them with `warn:` and `crit:`.
+History comes from Home Assistant's recorder and refreshes every 5 minutes, so the integration needs a long-lived access
+token (`token_file:`).

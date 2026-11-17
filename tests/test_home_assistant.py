@@ -200,3 +200,14 @@ def test_entity_tap_toggles_graph_unless_action_configured(fake):
     w.cfg["on_tap"] = "next_page"
     assert w.on_tap(0, 0) is False                             # the configured action wins
     reg.stop()
+
+
+def test_history_series_has_timestamps_and_keeps_the_newest_point(fake):
+    fake.history["sensor.temp"] = [i % 7 for i in range(500)] + ["unavailable"]
+    reg = make(fake)
+    ha = reg.get("ha", "home_assistant")
+    assert wait(lambda: ha.connected)
+    pts = ha.history_series("sensor.temp", 24, max_points=100)
+    assert len(pts) == 100 and all(b[0] >= a[0] for a, b in zip(pts, pts[1:]))
+    assert pts[-1][1] == float(499 % 7)                              # the "unavailable" row is dropped, newest kept
+    reg.stop()

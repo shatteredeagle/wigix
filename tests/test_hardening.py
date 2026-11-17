@@ -473,3 +473,14 @@ def test_compose_dockerfile_and_ci_hardening():
     assert "\nUSER wigix" in docker and "useradd" in docker
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "permissions:\n  contents: read" in ci
+
+
+def test_a_missing_secret_file_does_not_stop_the_daemon(tmp_path):
+    from wigix.engine import Dashboard
+    cfg = {"integrations": {"ha": {"type": "home_assistant", "url": "http://x:8123", "token_file": str(tmp_path / "nope")}},
+           "pages": [{"name": "A", "widgets": [{"type": "text", "text": "hi"}]}]}
+    d = Dashboard(cfg)
+    i = d.integrations.get("ha", "home_assistant")
+    assert i.connected is False and i.error and "nope" in i.error or "No such file" in i.error
+    d.integrations.start()
+    d.integrations.stop()
