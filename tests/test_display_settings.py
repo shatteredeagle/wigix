@@ -465,3 +465,32 @@ def test_clicking_a_list_entry_opens_settings_and_drag_places_it_with_them(tmp_p
         assert not errors, errors
     finally:
         srv.shutdown()
+
+
+def test_sensor_graphs_widget_draws_and_handles_missing_sensors():
+    from PIL import Image, ImageDraw
+    from wigix.render import Canvas
+    now = time.time()
+
+    class HA:
+        connected, error = True, None
+
+        def state(self, e):
+            if e == "sensor.gone":
+                return None
+            return {"state": {"t": "78.2", "h": "61", "b": "88"}[e], "attributes": {"unit_of_measurement": "°F" if e == "t" else "%"}}
+
+        def history_series(self, e, hours, **kw):
+            return [(now - hours * 3600 * (1 - i / 29), 70 + i % 7) for i in range(30)]
+
+    class Reg:
+        def get(self, *a):
+            return HA()
+
+    w = widgets.REGISTRY["sensor_graphs"]({"type": "sensor_graphs", "name": "Frog", "battery": "b",
+                                           "sensors": [{"entity": "t", "label": "Warm"}, {"entity": "h"}, {"entity": "sensor.gone"}]},
+                                          {"integrations": Reg()})
+    w.update()
+    img = Image.new("RGB", (322, 378), THEME["bg"])
+    w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 322, 378))
+    assert len(img.getcolors(100000)) > 10 and set(w.series) == {"t", "h", "sensor.gone"}

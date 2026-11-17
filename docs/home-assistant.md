@@ -70,3 +70,23 @@ action levels, and temperature, humidity and pressure graphs underneath. The rad
 Every sensor is optional. Levels follow the sensor's unit (pCi/L or Bq/m³); override them with `warn:` and `crit:`.
 History comes from Home Assistant's recorder and refreshes every 5 minutes, so the integration needs a long-lived access
 token (`token_file:`).
+
+
+## `sensor_graphs`: a few sensors as stacked graphs
+
+```yaml
+- type: sensor_graphs
+  name: Climate
+  integration: ha
+  sensors:
+    - {entity: sensor.frog_temperature, label: Warm side}
+    - {entity: sensor.frog_cool_temperature, label: Cool side}
+    - {entity: sensor.frog_cool_humidity, label: Humidity}
+  battery: sensor.frog_sensor_battery     # optional, shown in the title
+  hours: 24
+  at: [2, 1, 1, 2]
+```
+
+Each sensor gets a labelled graph with its current value, zoomed to its own range. Pair it with a `camera` widget for a
+terrarium or pet page: a camera on the top row, `sensor_graphs` in the two rows below it. With a Frigate NVR the cheapest
+live source is its go2rtc restream (`stream_url: rtsp://frigate.lan:8554/<camera>`), which keeps the load off the camera.

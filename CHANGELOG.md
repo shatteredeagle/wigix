@@ -16,6 +16,7 @@ All notable changes to wigix. Versions follow [semantic versioning](https://semv
 - **Tray**: checkable "Auto-rotate pages" and "Screensaver and dimming" items (runtime switches).
 - **btop-style tiles**: `system`, `proxmox`, `unraid`, `node` and `checks` draw framed panels with live CPU / memory /
   network graphs (`style: card` keeps the old look); Proxmox graphs start filled from the node's own history.
+- **`sensor_graphs` widget**: a few Home Assistant sensors as stacked history graphs (pair it with `camera` for a pet page).
 - **`air` widget**: radon graph with weekly average and action-level lines, plus temperature, humidity and pressure graphs.
 - **Look**: eight theme presets (`theme: nord`), card outlines, page position dots on the panel.
 
