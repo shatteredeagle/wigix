@@ -494,3 +494,38 @@ def test_sensor_graphs_widget_draws_and_handles_missing_sensors():
     img = Image.new("RGB", (322, 378), THEME["bg"])
     w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 322, 378))
     assert len(img.getcolors(100000)) > 10 and set(w.series) == {"t", "h", "sensor.gone"}
+
+
+def test_multi_graph_and_camera_border():
+    from PIL import Image, ImageDraw
+    from wigix.render import Canvas
+    now = time.time()
+
+    class HA:
+        connected, error = True, None
+
+        def state(self, e):
+            return None if e == "gone" else {"state": "75.5", "attributes": {}}
+
+        def history_series(self, e, hours, **kw):
+            return [(now - hours * 3600 * (1 - i / 29), 70 + (i * (3 if e == "b" else 1)) % 9) for i in range(30)]
+
+    class Reg:
+        def get(self, *a):
+            return HA()
+
+    w = widgets.REGISTRY["multi_graph"]({"type": "multi_graph", "graphs": [
+        {"title": "Temperature", "series": [{"entity": "a", "label": "Alpha", "color": "#c084fc"},
+                                             {"entity": "b", "label": "Beta", "color": "#f5a742", "dashed": True},
+                                             {"entity": "gone", "label": "Missing"}]},
+        {"title": "Humidity", "series": [{"entity": "a", "label": "Alpha"}]}]}, {"integrations": Reg()})
+    w.update()
+    img = Image.new("RGB", (488, 281), THEME["bg"])
+    w.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 488, 281))
+    cols = {c for _, c in img.getcolors(100000)}
+    assert (0xc0, 0x84, 0xfc) in cols and (0xf5, 0xa7, 0x42) in cols            # each sensor's own line colour is drawn
+
+    cam = widgets.REGISTRY["camera"]({"type": "camera", "name": "Frog", "snapshot_url": "http://x/y.jpg", "border": "#4ad682"}, {})
+    img2 = Image.new("RGB", (322, 184), THEME["bg"])
+    cam.draw(Canvas(ImageDraw.Draw(img2), img2), (0, 0, 322, 184))               # "loading": the outline is still drawn
+    assert img2.getpixel((161, 1)) == (0x4a, 0xd6, 0x82)

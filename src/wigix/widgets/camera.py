@@ -21,9 +21,9 @@ from PIL import Image
 
 from . import Widget, widget
 from ..integrations.net import describe_error, fetch_limited, tls_verify
-from .image import FIT, ROUNDED, fit_tile, paste_tile, pill, placeholder
+from .image import FIT, RADIUS, ROUNDED, fit_tile, paste_tile, pill, placeholder
 from .video import BAD_SOURCE, FfmpegStream, clamp_fps
-from ..render import THEME, read_secret
+from ..render import THEME, parse_color, read_secret
 
 MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024   # a snapshot or a Frigate frame is cut off beyond this
 MAX_EVENT_BYTES = 1024 * 1024
@@ -48,6 +48,7 @@ class CameraWidget(Widget):
               {"name": "token_file", "type": "string", "default": "", "help": "file holding the bearer token"},
               {"name": "headers", "type": "yaml", "default": {}, "help": "extra HTTP headers for snapshots"},
               {"name": "verify", "type": "bool", "default": True, "help": "verify TLS certificates: true, false, or a CA bundle path (YAML)"},
+              {"name": "border", "type": "color", "default": "", "help": "coloured outline (match it to a graph line)"},
               FIT, ROUNDED]
 
     def __init__(self, cfg, ctx):
@@ -185,6 +186,12 @@ class CameraWidget(Widget):
         return self._tile, self._image_time
 
     def draw(self, cv, box):
+        self._draw(cv, box)
+        color = parse_color(self.cfg.get("border"))
+        if color:                                        # a coloured outline, e.g. matching this camera's line on a graph
+            cv.d.rounded_rectangle(tuple(box), radius=RADIUS, outline=color, width=4)
+
+    def _draw(self, cv, box):
         self._last_draw = time.monotonic()
         source = self.source
         if source is None or source == "multiple":
@@ -202,7 +209,7 @@ class CameraWidget(Widget):
         paste_tile(cv, tile, box, self.cfg.get("rounded", True))
         x0, y0, x1, y1 = box
         if self.label:
-            pill(cv, (x0 + 10, y0 + 10), self.label)
+            pill(cv, (x0 + 10, y0 + 10), self.label, color=parse_color(self.cfg.get("border")))
         # LIVE while frames keep coming; stale when the newest one is older than 3x the refresh period
         stale = time.monotonic() - arrived > (3.0 if source == "stream_url" else 3 * self.refresh)
         inset = 70 if self.fullscreen else 10                 # fullscreen: leave room for the close button

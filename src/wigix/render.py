@@ -188,6 +188,43 @@ class Canvas:
         lx, ly = x0 + xy[-1][0], y0 + xy[-1][1]
         self.d.ellipse((lx - 3, ly - 3, lx + 3, ly + 3), fill=color, outline=THEME["card"])
 
+    def lines(self, box, series_list, window, now=None, fmt=None):
+        """Several time series on one plot: ``series_list`` is [(points, (r, g, b), dashed)]. The scale covers all of them
+        (zoomed to the data); the top and bottom values are printed in the corners of the plot."""
+        import time as _time
+        x0, y0, x1, y1 = (int(v) for v in box)
+        w, h = x1 - x0, y1 - y0
+        if w < 30 or h < 16:
+            return
+        self.d.rounded_rectangle((x0, y0, x1, y1), radius=7, fill=mix(THEME["card"], THEME["bg"], 0.55))
+        vals = [v for pts, _, _ in series_list for _, v in pts]
+        if not vals:
+            return
+        now = now or _time.time()
+        lo, hi = min(vals), max(vals)
+        span = max(hi - lo, abs(hi) * 0.02, 1e-9)
+        floor, top = lo - span * 0.12, hi + span * 0.12
+        padx, pady = 30, 6                                   # room on the left for the scale labels
+        yof = lambda v: y0 + pady + (h - 2 * pady) * (1 - (v - floor) / (top - floor))
+        for frac in (0.25, 0.5, 0.75):
+            gy = y0 + pady + (h - 2 * pady) * frac
+            self.d.line((x0 + padx, gy, x1 - 6, gy), fill=mix(THEME["card"], THEME["text"], 0.06), width=1)
+        fmt = fmt or (lambda v: fmt_number(v, 0) if abs(top - floor) > 8 else fmt_number(v, 1))
+        self.text((x0 + 4, y0 + 3), fmt(top - span * 0.12), size=11, color=THEME["dim"])
+        self.text((x0 + 4, y1 - 3), fmt(floor + span * 0.12), size=11, color=THEME["dim"], anchor="lb")
+        for pts, color, dashed in series_list:
+            if len(pts) < 2:
+                continue
+            xy = [(x0 + padx + (w - padx - 6) * max(0.0, min(1.0, 1 - (now - t) / window)), yof(v)) for t, v in pts]
+            if dashed:
+                for (ax, ay), (bx, by) in zip(xy, xy[1:]):
+                    if int(ax) // 6 % 2 == 0:
+                        self.d.line((ax, ay, bx, by), fill=color, width=2)
+            else:
+                self.d.line(xy, fill=color, width=2, joint="curve")
+            lx, ly = xy[-1]
+            self.d.ellipse((lx - 3, ly - 3, lx + 3, ly + 3), fill=color, outline=THEME["card"])
+
     def metric(self, box, label, value_text, series, window, frac=None, vmax=None, color=None, **area_kw):
         """One graph row: label left, value right (coloured by ``frac`` load), area chart filling the rest."""
         x0, y0, x1, y1 = box

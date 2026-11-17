@@ -90,3 +90,24 @@ token (`token_file:`).
 Each sensor gets a labelled graph with its current value, zoomed to its own range. Pair it with a `camera` widget for a
 terrarium or pet page: a camera on the top row, `sensor_graphs` in the two rows below it. With a Frigate NVR the cheapest
 live source is its go2rtc restream (`stream_url: rtsp://frigate.lan:8554/<camera>`), which keeps the load off the camera.
+
+
+## `multi_graph`: several sensors as coloured lines
+
+```yaml
+- type: multi_graph
+  name: Enclosures · 24 h
+  integration: ha
+  graphs:
+    - title: Temperature °F
+      series:
+        - {entity: sensor.spider_2_temperature, label: GrapeAss, color: "#c084fc"}
+        - {entity: sensor.frog_cool_temperature, label: Frog cool, color: "#4ad682", dashed: true}
+    - title: Humidity %
+      series:
+        - {entity: sensor.spider_2_humidity, label: GrapeAss, color: "#c084fc"}
+  at: [1, 1, 1, 1]
+```
+
+One graph per group, one coloured line per sensor, with a legend of the current values. Give the matching `camera`
+widget the same colour as `border: "#c084fc"` and each picture is outlined in its line's colour.
