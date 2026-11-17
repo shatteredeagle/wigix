@@ -322,3 +322,16 @@ def test_air_widget_draws_graphs_with_the_weekly_average():
     assert len(img.getcolors(100000)) > 10
     w2 = widgets.REGISTRY["air"]({"type": "air", "radon": "r"}, {"integrations": type("R", (), {"get": lambda s, *a: (_ for _ in ()).throw(KeyError("x"))})()})
     w2.draw(Canvas(ImageDraw.Draw(img), img), (0, 0, 488, 281))        # no HA integration: a status card, no crash
+
+
+def test_air_widget_retries_soon_when_ha_is_not_up_yet():
+    class HA:
+        connected = False
+
+    class Reg:
+        def get(self, *a):
+            return HA()
+
+    w = widgets.REGISTRY["air"]({"type": "air", "radon": "r"}, {"integrations": Reg()})
+    w.update()
+    assert w.interval == 5.0 and w.series == {}

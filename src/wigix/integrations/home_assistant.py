@@ -177,7 +177,8 @@ class HomeAssistant(Integration):
             return hit[1]
         start = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - hours * 3600))
         r = self._rest.get(f"{self.url}/api/history/period/{start}",
-                           params={"filter_entity_id": entity_id, "minimal_response": "1", "no_attributes": "1"},
+                           params={"filter_entity_id": entity_id, "minimal_response": "1", "no_attributes": "1",
+                                   "end_time": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())},   # the default end is start + 1 day
                            timeout=20)
         r.raise_for_status()
         pts = []
@@ -201,7 +202,8 @@ class HomeAssistant(Integration):
             return hit[1]
         start = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - hours * 3600))
         r = self._rest.get(f"{self.url}/api/history/period/{start}",
-                           params={"filter_entity_id": entity_id, "minimal_response": "1", "no_attributes": "1"},
+                           params={"filter_entity_id": entity_id, "minimal_response": "1", "no_attributes": "1",
+                                   "end_time": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())},   # the default end is start + 1 day
                            timeout=15)
         r.raise_for_status()
         vals = []

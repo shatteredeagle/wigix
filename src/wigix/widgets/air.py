@@ -36,11 +36,17 @@ class Air(HAWidget):
 
     def update(self):
         ha = self.ha
-        if not ha.connected:
+        if not ha.connected:                        # not up yet: look again soon instead of in 5 minutes
+            self.interval = 5.0
             return
-        for k in self._keys():
-            hours = float(self.cfg.get("hours", 168)) if k == "radon" else float(self.cfg.get("env_hours", 24))
-            self.series[k] = ha.history_series(self.cfg[k], hours)
+        try:
+            for k in self._keys():
+                hours = float(self.cfg.get("hours", 168)) if k == "radon" else float(self.cfg.get("env_hours", 24))
+                self.series[k] = ha.history_series(self.cfg[k], hours)
+        except Exception:
+            self.interval = 30.0                    # retry sooner after a failed fetch
+            raise
+        self.interval = 300.0
 
     def _read(self, key):
         """(state dict, float value or None, unit) for a configured sensor."""
