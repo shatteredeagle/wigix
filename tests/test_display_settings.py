@@ -8,7 +8,7 @@ import pytest
 from wigix import settings, tray, widgets
 from wigix.engine import Dashboard
 from wigix.render import THEME, set_theme
-from tests.test_editor import CHROME, TOKEN, XRW, post, serve  # noqa: F401
+from test_editor import CHROME, TOKEN, XRW, post, serve  # noqa: F401
 
 widgets.load_plugins()
 
@@ -212,7 +212,7 @@ def test_editor_validates_page_seconds(ed):
 
 def test_editor_meta_lists_presets(ed):
     import json
-    from tests.test_editor import call
+    from test_editor import call
     assert "nord" in json.loads(call(ed + "/api/meta")[1])["presets"]
 
 
