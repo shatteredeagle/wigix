@@ -8,7 +8,8 @@ All notable changes to wigix. Versions follow [semantic versioning](https://semv
   the dimming (`screensaver: false`); rotate through pages automatically with `rotate:` (per-page `seconds` and
   `rotate: false`, holds still while you touch the panel); `page_dots`; `swipe` and `splash` toggles in the editor.
 - **Editor**: drag widgets from the list onto the preview (they land in the cell you drop on), drop a widget on a page
-  tab to move it, drag tabs to reorder, double-click a tab to rename; searchable, grouped widget list; page and widget
+  tab to move it, drag tabs to reorder, double-click a tab to rename; searchable, grouped widget list that is two or more cards wide, resizable by dragging its edge (the
+  number of cards per row follows the width; the size and collapsed sections are remembered); page and widget
   settings as cards; overlap warnings while dragging; empty-page hint; daemon status pill with previous / pause / next
   buttons for the panel. Settings tab rebuilt as cards with switches; theme preset picker; page rotation options in the Inspector.
 - **Tray**: checkable "Auto-rotate pages" and "Screensaver and dimming" items (runtime switches).

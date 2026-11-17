@@ -389,3 +389,42 @@ def test_editor_drag_and_drop(tmp_path):
         assert not errors, errors
     finally:
         srv.shutdown()
+
+
+def test_widget_list_resizes_and_collapses(tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    if not pathlib.Path(CHROME).exists():
+        pytest.skip("google-chrome-stable not installed")
+    url, cfg, srv = serve(tmp_path)
+    try:
+        with sync_api.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+            except Exception as e:
+                pytest.skip(f"cannot launch Chrome: {e}")
+            pg = browser.new_context(bypass_csp=True, viewport={"width": 1600, "height": 900}).new_page()
+            errors = []
+            pg.on("pageerror", lambda e: errors.append(str(e)))
+            pg.goto(f"{url}/?token={TOKEN[0]}")
+            pg.wait_for_selector("#palette button")
+            cols = lambda: pg.evaluate("getComputedStyle(document.querySelector('.pgrid')).gridTemplateColumns.split(' ').length")
+            assert pg.evaluate("document.querySelector('aside.left').getBoundingClientRect().width") >= 310 and cols() >= 2   # 2+ wide by default
+            sp = pg.locator("#lsplit").bounding_box()
+            pg.mouse.move(sp["x"] + 4, 300)                                   # drag the splitter wider: more cards per row
+            pg.mouse.down()
+            pg.mouse.move(sp["x"] + 304, 300, steps=8)
+            pg.mouse.up()
+            assert pg.evaluate("document.querySelector('aside.left').getBoundingClientRect().width") > 560 and cols() >= 4
+            pg.dblclick("#lsplit")                                            # double-click resets
+            assert 310 <= pg.evaluate("document.querySelector('aside.left').getBoundingClientRect().width") <= 330
+            pg.click("#pcol")
+            assert pg.locator("#palette details[open]").count() == 0
+            pg.click("#pexp")
+            assert pg.locator("#palette details[open]").count() >= 2
+            pg.reload()                                                       # the collapsed/width choice is remembered per browser
+            pg.wait_for_selector("#palette button")
+            assert pg.locator("#palette details[open]").count() >= 2
+            browser.close()
+        assert not errors, errors
+    finally:
+        srv.shutdown()
