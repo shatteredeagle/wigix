@@ -108,6 +108,7 @@ main{position:relative;grid-template-columns:var(--lw,320px) minmax(0,1fr) 330px
 .pal small{white-space:normal!important;display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
 .ptools{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--dim)}.ptools button{background:none;border:0;padding:0;color:var(--dim);text-decoration:underline;cursor:pointer;font-size:11px}
 .ptools button:hover{color:var(--text)}
+.pal.on{background:rgba(86,156,255,.16);box-shadow:0 0 0 2px var(--accent)}.pickcard{border-color:var(--accent)}
 </style></head><body>
 <header><h1>Wigix editor</h1><span id="pill" class="pill" title="Whether the daemon is running this editor"><i></i><span>…</span></span>
  <div class="grp"><label>Grid <input id="cols" type="number" min="1" max="8"> × <input id="rows" type="number" min="1" max="6"></label>
@@ -170,7 +171,8 @@ const CATS=[['Monitoring','#4ad682',/^(system|node|proxmox|unraid|docker_contain
  ['Home Assistant','#569cff',/^(ha_|air$)/],['Display & media','#c084fc',/^(clock|weather|calendar_agenda|text|image|camera|video|media_player|audio_visualizer|screensaver)/],
  ['Controls & fun','#f5be3c',/^(button|macro_pad|draw_pad|game_|snake|printer)/]];
 const catOf=t=>CATS.find(c=>c[2].test(t))||['Other','#8a93a3'];
-let dragType=null;
+let dragType=null, pick=null;
+const drafts={};            // widget type -> settings chosen in the list before the widget is placed
 const store=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},recall=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 let openCats={};try{openCats=JSON.parse(recall('wigix.cats')||'{}')||{}}catch(e){}
 const setCats=open=>{document.querySelectorAll('#palette .pcat').forEach(d=>{d.open=open;openCats[d.dataset.cat]=open});store('wigix.cats',JSON.stringify(openCats))};
@@ -187,16 +189,19 @@ function buildPalette(){const p=$('#palette'),q=($('#psearch').value||'').trim()
  [...CATS,['Other','#8a93a3']].forEach(([name,color])=>{const g=groups[name];if(!g)return;
   const d=el('details',{className:'pcat',open:q?true:openCats[name]!==false,style:'--c:'+color,dataset:{cat:name}},el('summary',{},name+' · '+g.length)),grid=el('div',{className:'pgrid'});
   d.append(grid);d.ontoggle=()=>{if(!q){openCats[name]=d.open;store('wigix.cats',JSON.stringify(openCats))}};
-  g.forEach(t=>{const doc=t.doc.split('\n')[0],b=el('button',{className:'pal',draggable:true,dataset:{type:t.type},title:doc+'  (click to add, or drag onto the preview)',onclick:()=>addWidget(t.type)},el('b',{},t.type),el('small',{},doc));
+  g.forEach(t=>{const doc=t.doc.split('\n')[0],b=el('button',{className:'pal'+(pick===t.type?' on':''),draggable:true,dataset:{type:t.type},title:doc+'  (click for its settings, drag onto the preview to place it)',onclick:()=>pickType(t.type)},el('b',{},t.type),el('small',{},doc));
    b.ondragstart=e=>{dragType=t.type;e.dataTransfer.setData('text/plain','wigix:'+t.type);e.dataTransfer.effectAllowed='copy'};b.ondragend=()=>{dragType=null;clearGhost()};grid.append(b)});p.append(d)});
  if(!p.children.length)p.append(el('div',{className:'help'},'No widget matches “'+q+'”.'))}
 $('#psearch').oninput=buildPalette;
+function pickType(t){pick=pick===t?null:t;sel=null;tab='inspector';panelTabs();render();buildPalette()}
+function placeWidgetBtn(){if(!pick)return;const t=pick;addWidget(t);pick=null;buildPalette()}
 
 // --- widgets -----------------------------------------------------------------------------------
 function freeSpot(cs=1,rs=1){const g=grid(),used=new Set();P().widgets.forEach(w=>{const[c,r,a,b]=w.at||[0,0,1,1];for(let i=0;i<a;i++)for(let j=0;j<b;j++)used.add((c+i)+','+(r+j))});
  for(let r=0;r+rs<=g.rows;r++)for(let c=0;c+cs<=g.cols;c++){let ok=true;for(let i=0;i<cs&&ok;i++)for(let j=0;j<rs;j++)if(used.has((c+i)+','+(r+j))){ok=false;break}if(ok)return[c,r,cs,rs]}
  return null}
 function addWidget(type,at){const w={type,at:at||freeSpot()||[0,0,1,1]};(types[type].fields||[]).forEach(f=>{if(f.default!==undefined&&f.default!==''&&f.type!=='bool')w[f.name]=f.default});
+ Object.assign(w,JSON.parse(JSON.stringify(drafts[type]||{})));
  P().widgets.push(w);sel=w;commit();render();preview(1.5)}
 function duplicateWidget(){if(!sel)return;const w=JSON.parse(JSON.stringify(sel)),[c,r,cs,rs]=sel.at||[0,0,1,1],spot=freeSpot(cs,rs);
  w.at=spot||[c,r,cs,rs];P().widgets.push(w);sel=w;commit();render();preview();if(!spot)msg('no free cell: the copy sits on top of the original','warn')}
@@ -240,7 +245,7 @@ $('#frame').ondragover=e=>{if(!dragType)return;e.preventDefault();e.dataTransfer
 $('#frame').ondragleave=e=>{if(!$('#frame').contains(e.relatedTarget))clearGhost()};
 $('#frame').ondrop=e=>{if(!dragType)return;e.preventDefault();const at=cellAt(e),t=dragType;dragType=null;clearGhost();addWidget(t,at)};
 function renderAll(){render();panelTabs();intPanel();settingsPanel()}
-function startDrag(e,w,b){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();sel=w;const resize=e.target.classList.contains('rz'),fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,o0=geo(w.at),at0=[...w.at];
+function startDrag(e,w,b){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();sel=w;if(pick){pick=null;buildPalette()}const resize=e.target.classList.contains('rz'),fr=$('#frame').getBoundingClientRect(),k=FW/fr.width,o0=geo(w.at),at0=[...w.at];
  document.querySelectorAll('.wb').forEach(x=>x.classList.toggle('sel',x===b));if(tab==='inspector')inspector();
  const sx=e.clientX,sy=e.clientY,g=o0.g,cwp=o0.cw+g.gap,chp=o0.ch+g.gap;let overTab=null;
  const mv=ev=>{const dc=Math.round((ev.clientX-sx)*k/cwp),dr=Math.round((ev.clientY-sy)*k/chp);let[c,r,cs,rs]=at0;
@@ -288,7 +293,14 @@ function themeFields(box,owner,changed){const base=baseTheme(owner);
    el('button',{className:'small',disabled:!own,title:'Back to default',onclick:()=>{delete owner.theme[k];if(!Object.keys(owner.theme).length)delete owner.theme;changed(true)}},own?'reset':'default'));box.append(row)})}
 
 // --- inspector ---------------------------------------------------------------------------------
+function pickCard(box){const t=types[pick];if(!t)return;const d=drafts[pick]=drafts[pick]||{},c=el('div',{className:'card2 pickcard'});
+ c.append(el('h2',{},'New widget',el('span',{className:'badge'},pick)),el('div',{className:'help'},t.doc.split('\n')[0]),
+  el('div',{className:'hint',style:'margin:6px 0 8px'},el('span',{},'Set it up here, then drag its card from the list onto the preview to place it.')));
+ (t.fields||[]).forEach(f=>fieldRow(c,f,d,()=>{}));
+ c.append(el('div',{className:'row',style:'margin-top:12px'},el('button',{id:'addpick',onclick:placeWidgetBtn,title:'Place it in the first free cell'},'Add to this page'),
+  el('button',{onclick:()=>{pick=null;buildPalette();inspector()}},'Close')));box.append(c)}
 function inspector(){const box=$('#p-inspector');box.innerHTML='';
+ if(pick&&!sel){pickCard(box);return}
  const pc=el('div',{className:'card2'});
  pc.append(el('h2',{},'Page'),el('label',{},'Name'),el('input',{id:'pname',type:'text',value:P().name||'',onchange:e=>{P().name=e.target.value;commit();render()}}));
  pc.append(el('div',{className:'row',style:'margin-top:8px'},

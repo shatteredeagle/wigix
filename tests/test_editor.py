@@ -227,7 +227,9 @@ def test_editor_in_a_browser(tmp_path):
             pg.goto(f"{url}/?token={TOKEN[0]}")
             pg.wait_for_selector("#palette button")
 
-            pg.click("#palette button[data-type=text]")                      # add a widget
+            pg.click("#palette button[data-type=text]")                      # a click only opens its settings...
+            assert pg.locator(".wb").count() == 0
+            pg.click("#addpick")                                              # ...adding is explicit (or drag it in)
             pg.wait_for_selector(".wb")
             assert pg.locator(".wb").count() == 1
             box = pg.locator(".wb").bounding_box()

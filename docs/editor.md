@@ -101,7 +101,8 @@ Add its options to `src/wigix/integrations/schemas.py` (same field format as wid
 ## Drag and drop
 
 - Drag a widget from the list onto the preview: it lands in the cell you drop on (the dashed outline shows where; amber
-  means it overlaps another widget). Clicking a list entry still adds it in the first free cell.
+  means it overlaps another widget). Clicking a list entry does not place anything: it opens that widget's settings so you can set it up first (the
+  settings are used when you drag it in); the **Add to this page** button there is the explicit alternative.
 - Drag a widget to move it and its corner to resize; drop it on another page's tab to move it to that page.
 - Drag a page tab to reorder the pages, drop a list entry on a tab to add the widget there, double-click a tab to rename.
 - When the editor runs inside the daemon, the header shows its status and ◀ ⏸ ▶ buttons that flip the real panel.

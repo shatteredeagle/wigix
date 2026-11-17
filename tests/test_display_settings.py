@@ -428,3 +428,40 @@ def test_widget_list_resizes_and_collapses(tmp_path):
         assert not errors, errors
     finally:
         srv.shutdown()
+
+
+def test_clicking_a_list_entry_opens_settings_and_drag_places_it_with_them(tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    if not pathlib.Path(CHROME).exists():
+        pytest.skip("google-chrome-stable not installed")
+    url, cfg, srv = serve(tmp_path, "pages:\n- name: A\n  grid: {cols: 4, rows: 3, gap: 10}\n  widgets: []\n")
+    try:
+        with sync_api.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+            except Exception as e:
+                pytest.skip(f"cannot launch Chrome: {e}")
+            pg = browser.new_context(bypass_csp=True, viewport={"width": 1600, "height": 900}).new_page()
+            errors = []
+            pg.on("pageerror", lambda e: errors.append(str(e)))
+            pg.goto(f"{url}/?token={TOKEN[0]}")
+            pg.wait_for_selector("#palette button")
+            pg.click("#palette button[data-type=text]")
+            assert pg.locator(".wb").count() == 0                              # nothing was placed
+            assert pg.locator(".pickcard").count() == 1
+            field = pg.locator(".pickcard >> xpath=.//label[normalize-space()='text']/following-sibling::*[1]")
+            field.fill("hello from the list")
+            field.dispatch_event("change")
+            fr = pg.locator("#frame").bounding_box()
+            pg.drag_and_drop("#palette button[data-type=text]", "#frame",
+                             target_position={"x": fr["width"] * 0.1, "y": fr["height"] * 0.9})
+            pg.wait_for_selector(".wb")
+            pg.keyboard.press("Control+s")
+            pg.wait_for_function("document.querySelector('#msg').textContent.startsWith('saved')")
+            browser.close()
+        import yaml
+        w = yaml.safe_load(cfg.read_text())["pages"][0]["widgets"][0]
+        assert w["type"] == "text" and w["text"] == "hello from the list" and w["at"][:2] == [0, 2]
+        assert not errors, errors
+    finally:
+        srv.shutdown()
