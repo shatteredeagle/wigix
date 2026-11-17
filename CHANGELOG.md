@@ -2,6 +2,12 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.2.1 (2026-11-17)
+
+The same code as 0.2.0, released again because the 0.2.0 tag's CI run failed on a test import (a mistake in a test file, not
+in wigix), so that tag only got an AppImage. This is the first complete 0.2 release (wheel, sdist, checksums, PyPI). Everything
+new in the 0.2 series is listed under 0.2.0 below.
+
 ## 0.2.0 (2026-11-17)
 
 - **Touch**: swiping no longer taps (and zooms into) the card under your finger. A lift now has to last 0.1 s before it counts,
