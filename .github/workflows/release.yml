@@ -58,8 +58,11 @@ jobs:
       - name: Release notes from CHANGELOG.md
         run: |
           v="${GITHUB_REF_NAME#v}"
-          awk -v v="$v" '$0 ~ "^## "v"( |$)" {p=1; next} /^## / {p=0} p' CHANGELOG.md > notes.md
-          test -s notes.md || echo "See CHANGELOG.md" > notes.md
+          sed "s/VERSION/$v/g" .github/release-header.md > notes.md
+          echo "## What's new" >> notes.md
+          awk -v v="$v" '$0 ~ "^## "v"( |$)" {p=1; next} /^## / {p=0} p' CHANGELOG.md > changes.md
+          test -s changes.md || echo "See CHANGELOG.md" > changes.md
+          cat changes.md >> notes.md
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS
       - uses: softprops/action-gh-release@v2

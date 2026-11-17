@@ -6,7 +6,8 @@ installed `wigix` command: every subcommand (`run`, `preview`, `editor`, `doctor
 
 ## Download and run
 
-Grab `wigix-<version>-x86_64.AppImage` from the [releases page](https://github.com/shatteredeagle/wigix/releases),
+Grab `wigix-<version>-x86_64.AppImage` from the [releases page](https://github.com/shatteredeagle/wigix/releases)
+(the newest one is always at `https://github.com/shatteredeagle/wigix/releases/latest/download/wigix-x86_64.AppImage`),
 then:
 
 ```sh

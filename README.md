@@ -1,5 +1,8 @@
 # wigix
 
+[![Latest release](https://img.shields.io/github/v/release/shatteredeagle/wigix)](https://github.com/shatteredeagle/wigix/releases/latest)
+[![Tests](https://img.shields.io/github/actions/workflow/status/shatteredeagle/wigix/ci.yml?branch=main&label=tests)](https://github.com/shatteredeagle/wigix/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20wigix-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/brognak)
 
 **A configurable touch dashboard for the G.SKILL WigiDash USB panel on Linux: monitor your machines, control your
@@ -14,6 +17,17 @@ smart home, and lay it all out in a browser editor.**
 |---|---|
 | ![Home](docs/img/home.png) | ![Monitoring](docs/img/monitoring.png) |
 | ![Custom theme](docs/img/themed.png) | ![Web editor](docs/img/editor-dark.png) |
+
+## Download
+
+Grab the newest build from the **[releases page](https://github.com/shatteredeagle/wigix/releases/latest)**: a single-file
+AppImage (no Python needed), a wheel and a source archive, with checksums.
+
+```sh
+curl -L -o ~/wigix.AppImage https://github.com/shatteredeagle/wigix/releases/latest/download/wigix-x86_64.AppImage
+chmod +x ~/wigix.AppImage
+~/wigix.AppImage init --udev && ~/wigix.AppImage init && ~/wigix.AppImage run    # see "Quick start" below for what each does
+```
 
 ## Features
 

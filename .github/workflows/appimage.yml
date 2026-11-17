@@ -43,6 +43,8 @@ jobs:
           name: wigix-appimage
       - name: Verify checksum
         run: sha256sum --check *.sha256
+      - name: Stable file name (so /releases/latest/download/wigix-x86_64.AppImage always works)
+        run: cp wigix-*-x86_64.AppImage wigix-x86_64.AppImage
       - uses: softprops/action-gh-release@v2
         with:
           files: |
