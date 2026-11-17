@@ -2,7 +2,7 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.2.0 (2026-11-17)
 
 - **Touch**: swiping no longer taps (and zooms into) the card under your finger. A lift now has to last 0.1 s before it counts,
   so a dropped touch sample in the middle of a drag no longer ends the gesture early; a tap also has to stay put the whole
