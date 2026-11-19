@@ -7,6 +7,21 @@ config. It works on the same YAML file the daemon reads, and the daemon hot-relo
 editor: {port: 8765}          # in the config: the daemon serves the editor at http://127.0.0.1:8765
 ```
 
+### Using it from another machine (headless setups)
+
+On a Pi or server with no screen, let the editor listen on the network:
+
+```yaml
+editor: {lan: true, port: 8765}
+```
+
+Restart the daemon, run `wigix url` on that machine and open the link it prints (e.g.
+`http://wigipi.local:8765/?token=...`) from any computer on the same network. `lan: true` listens on every interface and
+accepts this machine's hostname (plain and `.local`) and its IP address in the `Host` header. For another name (a DNS
+entry or reverse proxy), add it: `allowed_hosts: [wigix.lan.example.com]`. The token is still required, but the link is
+plain HTTP, so anyone who can watch your network traffic could read it: use this on a network you trust, or tunnel with
+`ssh -L 8765:localhost:8765 pi` and leave `lan` off.
+
 ## Opening it: the access link
 
 The editor is protected by a secret token. Run `wigix url` (add `-c path/to/config.yaml` if yours is not the default) and

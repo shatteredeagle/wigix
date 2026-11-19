@@ -86,9 +86,10 @@ def main():
         from .autostart import main as autostart
         sys.exit(autostart(a.action, a.config, a.boot, a.tray))
     if a.cmd == "url":
-        from .editor import editor_url
+        from .editor import editor_url, lan_settings
         ecfg = load_config(a.config).get("editor") or {}
-        print(editor_url(a.config, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765))))
+        host, _, lan = lan_settings(ecfg)
+        print(editor_url(a.config, host, int(ecfg.get("port", 8765)), lan))
         return
     if a.cmd == "editor":
         from .editor import serve

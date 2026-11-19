@@ -539,9 +539,9 @@ class Dashboard:
         threading.Thread(target=self._touch_loop, daemon=True).start()
         ecfg = self.cfg.get("editor")
         if ecfg and self.path:
-            from .editor import serve
-            serve(self.path, ecfg.get("host", "127.0.0.1"), int(ecfg.get("port", 8765)), self, block=False,
-                  allowed_hosts=ecfg.get("allowed_hosts", ()))
+            from .editor import lan_settings, serve
+            host, hosts, lan = lan_settings(ecfg)
+            serve(self.path, host, int(ecfg.get("port", 8765)), self, block=False, allowed_hosts=hosts, allow_ip=lan)
         dev, last_hash, last_sent = None, None, 0.0
         while True:
             t0 = time.time()

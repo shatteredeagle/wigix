@@ -2,6 +2,11 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- **Editor on the network**: `editor: {lan: true}` makes the web editor reachable from other machines (for headless
+  Pi/server installs). `wigix url` prints the `<hostname>.local` link. Off by default; the token is still required.
+
 ## 0.2.2 (2026-11-17)
 
 - **Tray notifications are calmer**: a problem must last two minutes before it is announced, the same message shows at most

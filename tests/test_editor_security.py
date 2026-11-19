@@ -257,3 +257,39 @@ def test_control_endpoint_is_guarded_and_needs_the_daemon(tmp_path):
             st = json.loads(req(url.replace("control", "status"), headers=authed(editor))[1])
             assert st["connected"] is False and st["pages"] == ["A", "B"] and st["paused"] is False
         srv.shutdown()
+
+
+# --- editor: {lan: true} -----------------------------------------------------------------------
+def test_lan_settings_defaults_and_lan_mode(monkeypatch):
+    import socket as _s
+    from wigix.editor import lan_settings
+    monkeypatch.setattr(_s, "gethostname", lambda: "WigiPi.home")
+    assert lan_settings(None) == ("127.0.0.1", [], False)
+    assert lan_settings({"allowed_hosts": ["x.lan"]}) == ("127.0.0.1", ["x.lan"], False)
+    assert lan_settings({"lan": True}) == ("0.0.0.0", ["wigipi", "wigipi.local"], True)
+    assert lan_settings({"lan": True, "host": "192.168.1.5"})[0] == "192.168.1.5"
+
+
+@pytest.mark.parametrize("host,ok", [("wigipi.local:8765", True), ("192.168.1.50:8765", True), ("[fe80::1]:8765", True),
+                                     ("evil.com", False), ("wigipi.local.evil.com", False), ("192.168.1.50.evil.com", False)])
+def test_lan_mode_host_header(tmp_path, host, ok):
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(CFG)
+    cfg.chmod(0o600)
+    e = Editor(str(cfg))
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(e, ["wigipi.local"], allow_ip=True))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        code = req(f"http://127.0.0.1:{srv.server_port}/api/config", headers=authed(e, Host=host))[0]
+    finally:
+        srv.shutdown()
+    assert (code == 200) == ok
+
+
+def test_lan_url_uses_the_hostname(tmp_path, monkeypatch):
+    import socket as _s
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(CFG)
+    monkeypatch.setattr(_s, "gethostname", lambda: "wigipi")
+    assert editor_url(str(cfg), "0.0.0.0", 8765, lan=True).startswith("http://wigipi.local:8765/?token=")
+    assert editor_url(str(cfg), "0.0.0.0", 8765).startswith("http://localhost:8765/?token=")

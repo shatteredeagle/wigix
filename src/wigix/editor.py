@@ -8,7 +8,7 @@ Access control: every request needs the editor's secret token (kept in a 0600 fi
 prints the link). The first visit to /?token=... stores it in an HttpOnly SameSite=Strict cookie. On top of that: a
 Host-header allow-list (DNS rebinding), a custom header on writes (cross-site requests), and the config keys that
 grant code execution (`plugin_dirs`, `security`, `editor`) cannot be changed through the API at all.
-Editor access is still equivalent to control over what this daemon connects to: keep it on localhost.
+Editor access is still equivalent to control over what this daemon connects to: keep it on localhost unless it is on a trusted LAN (`editor: {lan: true}`).
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ import os
 import pathlib
 import re
 import secrets
+import socket
 import sys
 import threading
 import time
@@ -350,7 +351,24 @@ NEEDS_TOKEN = """<!doctype html><meta charset=utf-8><title>wigix editor</title>
 the link it prints (it contains a secret token, so treat it like a password).</p></body>"""
 
 
-def make_handler(ed: Editor, extra_hosts=()):
+IP_RE = re.compile(r"^(\d{1,3}(\.\d{1,3}){3}|\[[0-9a-fA-F:.]+\])$")
+
+
+def lan_settings(ecfg: dict | None) -> tuple[str, list[str], bool]:
+    """(bind host, allowed Host names, accept IP-literal Hosts) for an ``editor:`` block.
+
+    ``lan: true`` listens on every interface and accepts this machine's hostname (plain and ``.local``) and its IP
+    addresses as the Host header. IP literals cannot be used for DNS rebinding, so they are safe to accept; other names
+    still have to be listed in ``allowed_hosts``."""
+    ecfg = ecfg or {}
+    allowed = [str(h) for h in ecfg.get("allowed_hosts", ())]
+    if not ecfg.get("lan"):
+        return ecfg.get("host", "127.0.0.1"), allowed, False
+    name = socket.gethostname().split(".")[0].lower()
+    return ecfg.get("host", "0.0.0.0"), allowed + [name, name + ".local"], True
+
+
+def make_handler(ed: Editor, extra_hosts=(), allow_ip=False):
     allowed = {h.lower() for h in ALLOWED_HOSTS | set(extra_hosts)}
 
     class H_(BaseHTTPRequestHandler):
@@ -361,7 +379,7 @@ def make_handler(ed: Editor, extra_hosts=()):
 
         def _host_ok(self) -> bool:
             m = HOST_RE.match(self.headers.get("Host") or "")
-            return bool(m) and m.group(1).lower() in allowed
+            return bool(m) and (m.group(1).lower() in allowed or (allow_ip and bool(IP_RE.match(m.group(1)))))
 
         def _cookie_token(self):
             for part in (self.headers.get("Cookie") or "").split(";"):
@@ -511,18 +529,20 @@ def make_handler(ed: Editor, extra_hosts=()):
     return H_
 
 
-def editor_url(path, host="127.0.0.1", port=8765) -> str:
+def editor_url(path, host="127.0.0.1", port=8765, lan=False) -> str:
     """The link that opens the editor (contains the secret token: do not share or log it)."""
-    host = "localhost" if host in ("0.0.0.0", "::") else host
+    if host in ("0.0.0.0", "::"):
+        host = socket.gethostname().split(".")[0] + ".local" if lan else "localhost"
     return f"http://{host}:{port}/?token={load_token(path)}"
 
 
-def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True, allowed_hosts=(), announce=False):
+def serve(path, host="127.0.0.1", port=8765, dashboard=None, block=True, allowed_hosts=(), announce=False,
+          allow_ip=False):
     ed = Editor(path, dashboard)
-    srv = ThreadingHTTPServer((host, port), make_handler(ed, allowed_hosts))
+    srv = ThreadingHTTPServer((host, port), make_handler(ed, allowed_hosts, allow_ip))
     log.info("editor listening on %s:%d (run `wigix url` for the access link)", host, port)
     if announce:                                 # interactive `wigix editor`: print the link on the terminal
-        print("Open:", editor_url(path, host, port), flush=True)
+        print("Open:", editor_url(path, host, port, allow_ip), flush=True)
     if block:
         try:
             srv.serve_forever()

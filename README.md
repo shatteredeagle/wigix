@@ -121,7 +121,7 @@ screen until you **unplug and replug** the USB cable. A fresh plug-in works. Det
   `~/.config/wigix/editor_token`). Opening the link once sets an HttpOnly, SameSite=Strict cookie. On top of that the editor
   checks the `Host` header (DNS rebinding), requires a custom header on writes and sends a strict Content-Security-Policy.
 - **Editor access is powerful**: whoever has the link can change which services the daemon talks to and which files it
-  reads. Keep it on localhost (the default); to use it remotely, tunnel it over SSH rather than binding it to a LAN.
+  reads. Keep it on localhost (the default); for a headless box on a trusted network set `editor: {lan: true}` (see docs/editor.md), or tunnel it over SSH.
 - **Code-execution settings are hand-edit only.** `plugin_dirs`, `security` and `editor` cannot be changed through the
   editor's API, and `command:`, key-press and `type:` actions are ignored unless you set `security: {allow_commands: true}`
   in the file yourself. `url:` actions only open http(s) links.
