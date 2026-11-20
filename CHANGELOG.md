@@ -2,7 +2,7 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.2.6 (2026-11-20)
 
 - **GPU graph on the `system` widget**: AMD (through sysfs) and NVIDIA (`nvidia-smi`) GPUs get a utilisation graph next to
   the CPU graph, with VRAM in use, temperature and power in its header. It appears by itself when a GPU is found;

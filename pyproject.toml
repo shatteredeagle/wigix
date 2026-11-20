@@ -1,6 +1,6 @@
 [project]
 name = "wigix"
-version = "0.2.5"
+version = "0.2.6"
 description = "Open-source Linux driver and dashboard for the G.SKILL WigiDash"
 readme = "README.md"
 keywords = ["wigix", "gskill", "dashboard", "homelab", "usb", "home-assistant"]
