@@ -2,7 +2,7 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.2.4 (2026-11-20)
 
 - `wigix init --udev --headless` prints a udev rule that uses the `plugdev` group, for machines with no logged-in desktop
   (a Raspberry Pi over SSH), where the default `uaccess` rule grants nothing.

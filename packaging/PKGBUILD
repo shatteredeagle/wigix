@@ -1,6 +1,6 @@
 # Maintainer: wigix contributors
 pkgname=wigix
-pkgver=0.2.3
+pkgver=0.2.4
 pkgrel=1
 pkgdesc='Linux driver and configurable dashboard for the G.SKILL WigiDash USB touch panel'
 arch=('any')
