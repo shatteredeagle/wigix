@@ -19,6 +19,11 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef01", MODE="0660", 
 SUBSYSTEM=="usb", ATTR{idVendor}=="28da", ATTR{idProduct}=="ef02", MODE="0660", TAG+="uaccess"
 '''
 
+# Headless boxes (a Pi over SSH) have no logged-in seat, so uaccess grants nothing: use the plugdev group instead.
+UDEV_RULE_HEADLESS = UDEV_RULE.replace("uaccess grants the logged-in user access.",
+                                       "plugdev (Raspberry Pi OS, Debian) grants group members access.") \
+                              .replace('TAG+="uaccess"', 'GROUP="plugdev"')
+
 UDEV_RELOAD = ["udevadm control --reload",
                "udevadm trigger --subsystem-match=usb --action=add"]
 
@@ -80,12 +85,15 @@ def write_config(out: Path, force: bool = False) -> str:
     return msg
 
 
-def udev_instructions() -> str:
+def udev_instructions(headless: bool = False) -> str:
+    rule = UDEV_RULE_HEADLESS if headless else UDEV_RULE
     cmds = "\n".join(f"  sudo {c}" for c in UDEV_RELOAD)
-    return (f"Put this in {UDEV_PATH}:\n\n{UDEV_RULE}\n"
-            f"Or in one go:\n  sudo tee {UDEV_PATH} <<'EOF'\n{UDEV_RULE}EOF\n\n"
+    note = ("The user running wigix must be in the plugdev group (`id -nG`; add with `sudo usermod -aG plugdev $USER`).\n"
+            if headless else "")
+    return (f"Put this in {UDEV_PATH}:\n\n{rule}\n"
+            f"Or in one go:\n  sudo tee {UDEV_PATH} <<'EOF'\n{rule}EOF\n\n"
             f"then reload the rules:\n{cmds}\n\n"
-            "Unplug and replug the panel once (or run the trigger line above).\n"
+            "Unplug and replug the panel once (or run the trigger line above).\n" + note +
             "The same commands work on Arch, Debian/Ubuntu and Fedora. uaccess needs systemd-logind; "
             "on a system without it, add your user to a group and use GROUP=\"<group>\" in the rule instead.")
 
@@ -178,7 +186,7 @@ def enable_unit() -> int:
     return 0
 
 
-def run(out=None, force=False, udev=False, systemd=False, enable=False, tray=False) -> int:
+def run(out=None, force=False, udev=False, systemd=False, enable=False, tray=False, headless=False) -> int:
     """Entry point for the CLI. Returns the process exit status.
 
     With no flags it writes the starter config. ``--udev`` / ``--systemd`` / ``--enable`` add their steps;
@@ -186,7 +194,7 @@ def run(out=None, force=False, udev=False, systemd=False, enable=False, tray=Fal
     """
     extras = udev or systemd or enable or tray
     if udev:
-        print(udev_instructions())
+        print(udev_instructions(headless))
     if systemd or enable:
         try:
             print(f"installed {install_unit(force=force)}")

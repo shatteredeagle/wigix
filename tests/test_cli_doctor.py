@@ -234,6 +234,12 @@ def test_udev_rule_matches_contrib_file():
     assert all('TAG+="uaccess"' in ln and 'MODE="0660"' in ln for ln in rule_lines)
 
 
+def test_udev_headless_rule_uses_plugdev(capsys):
+    out = init.udev_instructions(headless=True)
+    assert ('GROUP="plugdev"' in out and 'TAG+="uaccess"' not in out and "plugdev group" in out)
+    assert 'TAG+="uaccess"' in init.udev_instructions()
+
+
 def test_unit_generation(monkeypatch):
     monkeypatch.setattr(init.shutil, "which", lambda t: "/opt/my tools/bin/wigix")
     text = init.unit_text()

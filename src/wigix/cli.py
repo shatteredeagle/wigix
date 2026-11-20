@@ -51,6 +51,8 @@ def main():
     it.add_argument("-o", "--out", help=f"config path (default {DEFAULT_CONFIG})")
     it.add_argument("--force", action="store_true", help="overwrite existing files (config keeps a .bak)")
     it.add_argument("--udev", action="store_true", help="print the udev rule and the commands to install it")
+    it.add_argument("--headless", action="store_true",
+                    help="with --udev: grant access through the plugdev group (no logged-in desktop, e.g. a Pi over SSH)")
     it.add_argument("--systemd", action="store_true", help="install the systemd user unit")
     it.add_argument("--tray", action="store_true", help="install the tray autostart entry (~/.config/autostart)")
     it.add_argument("--enable", action="store_true", help="with --systemd: also enable and start it")
@@ -76,7 +78,7 @@ def main():
         sys.exit(doctor(a.config, a.json))
     if a.cmd == "init":
         from .init import run as init
-        sys.exit(init(a.out, a.force, a.udev, a.systemd, a.enable, a.tray))
+        sys.exit(init(a.out, a.force, a.udev, a.systemd, a.enable, a.tray, a.headless))
     if a.cmd == "tray":
         from .tray import main as tray
         sys.exit(tray(a.config, a.quiet))

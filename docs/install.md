@@ -66,7 +66,9 @@ sudo udevadm trigger --subsystem-match=usb --action=add
 ```
 
 The same on Arch, Debian/Ubuntu and Fedora. `uaccess` gives the user at the console access to the panel; it needs
-systemd-logind (every mainstream desktop distro). Unplug and replug the panel afterwards. The copy of this file in
+systemd-logind (every mainstream desktop distro). Unplug and replug the panel afterwards. On a headless
+machine (a Raspberry Pi over SSH) nobody is logged in at the seat, so use `wigix init --udev --headless`: the same rule
+with `GROUP="plugdev"` instead of `uaccess`. The copy of this file in
 the repository is [contrib/70-wigix.rules](../contrib/70-wigix.rules).
 
 ## 3. Write a config and check everything

@@ -2,6 +2,11 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- `wigix init --udev --headless` prints a udev rule that uses the `plugdev` group, for machines with no logged-in desktop
+  (a Raspberry Pi over SSH), where the default `uaccess` rule grants nothing.
+
 ## 0.2.3 (2026-11-19)
 
 - **Editor on the network**: `editor: {lan: true}` makes the web editor reachable from other machines (for headless
