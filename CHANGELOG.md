@@ -2,6 +2,11 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## 0.2.5 (2026-11-20)
+
+- **Touch works on more panels**: some units tag their touch reports `0xED` instead of `0xEA`, which wigix ignored.
+  Any nonzero tag is accepted now.
+
 ## 0.2.4 (2026-11-20)
 
 - `wigix init --udev --headless` prints a udev rule that uses the `plugdev` group, for machines with no logged-in desktop

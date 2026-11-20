@@ -46,8 +46,11 @@ The vendor app does this before the first frame, and **touch reports stay silent
 Reported in the 8-byte status read (IN `0x33`, polled ~20-60 Hz):
 
 ```
-[state, 0xEA, x_lo, x_hi, y_lo, y_hi, 0, 0]
+[state, tag, x_lo, x_hi, y_lo, y_hi, 0, 0]
 ```
+
+`tag` is nonzero: `0xEA` on the first unit examined, `0xED` on a second one (firmware WigiDash-1.0_20231024_1928).
+Treat any nonzero value as "a touch report".
 
 `state` 1 = finger down/moving, 2 = lift (carries the last coordinates), 0 = trailing report after a lift. All zeros =
 idle. Coordinates are in screen pixels (0..1015, 0..591). A quick tap is `1, 2, 0`. Contact can bounce on firm presses,

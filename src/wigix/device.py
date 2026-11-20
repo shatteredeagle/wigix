@@ -79,11 +79,11 @@ class WigiDash:
     def touch(self) -> Touch | None:
         """Poll once. Returns a Touch while the finger is down or on the release edge, else None.
 
-        Status bytes: [state, 0xEA, x_lo, x_hi, y_lo, y_hi, 0, 0]; state 1 = touching, 2 = lift
-        (last coordinates), 0 with 0xEA = trailing idle report; all zeros = idle.
+        Status bytes: [state, tag, x_lo, x_hi, y_lo, y_hi, 0, 0]; tag is nonzero (0xEA on some units, 0xED on others); state 1 = touching, 2 = lift
+        (last coordinates), 0 with a tag = trailing idle report; all zeros = idle.
         """
         s = self._read(0x33, 8)
-        if s[1] != 0xEA:
+        if not s[1] or s[0] > 2:
             if self._last_touch.down:      # went idle without a release report
                 self._last_touch = Touch(False, *self._last_touch[1:])
                 return self._last_touch

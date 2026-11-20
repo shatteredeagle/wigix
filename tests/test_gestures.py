@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Tap and swipe recognition, including a digitiser that drops the finger mid-drag."""
+import pytest
+from wigix.device import Touch
 from wigix.engine import Gesture
 
 
@@ -56,3 +58,16 @@ def test_swipe_fires_once_per_touch():
     for i, x in enumerate((600, 540, 480, 420, 360, 300)):
         ev += g.feed(True, x, 300, i * 0.03)
     assert ev == [("swipe", "next_page")]
+
+
+@pytest.mark.parametrize("tag", [0xEA, 0xED])
+def test_touch_reports_with_any_tag(tag):
+    from wigix.device import WigiDash
+    d = WigiDash.__new__(WigiDash)
+    d._last_touch = Touch(False, 0, 0)
+    reports = iter([bytes([1, tag, 0xAE, 0x02, 0x7C, 0x01, 0, 0]), bytes([2, tag, 0xAE, 0x02, 0x7C, 0x01, 0, 0]),
+                    bytes([0, tag, 0xAE, 0x02, 0x7C, 0x01, 0, 0]), bytes(8)])
+    d._read = lambda *a: next(reports)
+    down, lift = d.touch(), d.touch()
+    assert (down.down, down.x, down.y) == (True, 0x2AE, 0x17C) and lift.down is False
+    assert d.touch() is None and d.touch() is None
