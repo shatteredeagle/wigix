@@ -2,6 +2,12 @@
 
 All notable changes to wigix. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+- **GPU graph on the `system` widget**: AMD (through sysfs) and NVIDIA (`nvidia-smi`) GPUs get a utilisation graph next to
+  the CPU graph, with VRAM in use, temperature and power in its header. It appears by itself when a GPU is found;
+  `gpu: false` turns it off.
+
 ## 0.2.5 (2026-11-20)
 
 - **Touch works on more panels**: some units tag their touch reports `0xED` instead of `0xEA`, which wigix ignored.

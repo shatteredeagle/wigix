@@ -2,7 +2,37 @@
 
 Every built-in widget, drawn from fake data by `tools/gallery.py` (regenerate it with `.venv/bin/python tools/gallery.py`). Each picture shows the widget in a 1x1 cell (left) and a 2x2 cell (right) of a 4x3 grid, so you can see how it adapts. Widgets that need a service show a placeholder card when it is missing.
 
-Jump to: [alertmanager_alerts](#alertmanager-alerts), [audio_visualizer](#audio-visualizer), [button](#button), [calendar_agenda](#calendar-agenda), [camera](#camera), [checks](#checks), [clock](#clock), [dns_stats](#dns-stats), [docker_containers](#docker-containers), [draw_pad](#draw-pad), [game_2048](#game-2048), [ha_alerts](#ha-alerts), [ha_button](#ha-button), [ha_entity](#ha-entity), [ha_gauge](#ha-gauge), [ha_graph](#ha-graph), [ha_list](#ha-list), [ha_toggle](#ha-toggle), [image](#image), [json_list](#json-list), [json_value](#json-value), [macro_pad](#macro-pad), [media_player](#media-player), [node](#node), [printer](#printer), [prom_graph](#prom-graph), [prom_value](#prom-value), [proxmox](#proxmox), [screensaver](#screensaver), [snake](#snake), [system](#system), [text](#text), [unifi](#unifi), [unraid](#unraid), [uptime_kuma](#uptime-kuma), [video](#video), [weather](#weather)
+Jump to: [air](#air), [alertmanager_alerts](#alertmanager-alerts), [audio_visualizer](#audio-visualizer), [button](#button), [calendar_agenda](#calendar-agenda), [camera](#camera), [checks](#checks), [clock](#clock), [dns_stats](#dns-stats), [docker_containers](#docker-containers), [draw_pad](#draw-pad), [game_2048](#game-2048), [ha_alerts](#ha-alerts), [ha_button](#ha-button), [ha_entity](#ha-entity), [ha_gauge](#ha-gauge), [ha_graph](#ha-graph), [ha_list](#ha-list), [ha_toggle](#ha-toggle), [image](#image), [json_list](#json-list), [json_value](#json-value), [macro_pad](#macro-pad), [media_player](#media-player), [multi_graph](#multi-graph), [node](#node), [printer](#printer), [prom_graph](#prom-graph), [prom_value](#prom-value), [proxmox](#proxmox), [screensaver](#screensaver), [sensor_graphs](#sensor-graphs), [snake](#snake), [system](#system), [text](#text), [unifi](#unifi), [unraid](#unraid), [uptime_kuma](#uptime-kuma), [video](#video), [weather](#weather)
+
+## air
+
+Radon (graph + weekly average line) and room climate graphs from Home Assistant sensors.
+
+![air](img/gallery/air.png)
+
+```yaml
+- type: air
+  at: [0, 0, 1, 1]
+  name: Basement air
+  hours: 168
+  env_hours: 24
+  style: btop
+```
+
+| option | type | default | description |
+|---|---|---|---|
+| `name` | string | `Basement air` |  |
+| `integration` | string | - | integration name (optional if only one) |
+| `radon` | entity | - | radon concentration sensor |
+| `radon_avg` | entity | - | its 7-day average sensor (drawn as a dashed line) |
+| `temperature` | entity | - | temperature sensor |
+| `humidity` | entity | - | humidity sensor |
+| `pressure` | entity | - | pressure sensor |
+| `hours` | float | `168` | radon graph length in hours (168 = a week) |
+| `env_hours` | float | `24` | climate graphs length in hours |
+| `warn` | float | - | warning level (default 2.7 pCi/L or 100 Bq/m³) |
+| `crit` | float | - | high level (default 4 pCi/L or 148 Bq/m³) |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## alertmanager_alerts
 
@@ -124,6 +154,7 @@ A camera picture (snapshot, stream, Home Assistant or Frigate) with name and LIV
 | `token_file` | string | - | file holding the bearer token |
 | `headers` | yaml | `{}` | extra HTTP headers for snapshots |
 | `verify` | bool | `true` | verify TLS certificates: true, false, or a CA bundle path (YAML) |
+| `border` | color | - | coloured outline (match it to a graph line) |
 | `fit` | string | `cover` | cover (crop to fill) \| contain (letterbox) \| stretch |
 | `rounded` | bool | `true` | round the corners like a card |
 
@@ -138,9 +169,9 @@ Service up/down board. Config: checks: [{name, http: url} | {name, tcp: "host:po
   at: [0, 0, 1, 1]
   title: Services
   checks:
-  - {name: pve.lan, http: 'http://127.0.0.1:39899/ok'}
-  - {name: nas.lan, tcp: '127.0.0.1:44049'}
-  - {name: router.lan, http: 'http://127.0.0.1:39899/ok'}
+  - {name: pve.lan, http: 'http://127.0.0.1:41827/ok'}
+  - {name: nas.lan, tcp: '127.0.0.1:51017'}
+  - {name: router.lan, http: 'http://127.0.0.1:41827/ok'}
   - {name: backup.lan, tcp: '127.0.0.1:9'}
 ```
 
@@ -149,6 +180,7 @@ Service up/down board. Config: checks: [{name, http: url} | {name, tcp: "host:po
 | `title` | string | `Services` |  |
 | `checks` | yaml | `[{http: 'https://example.com', name: Example}]` | list of {name, http\|tcp} |
 | `timeout` | float | `3` |  |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## clock
 
@@ -539,6 +571,31 @@ integrations:
 | `integration` | string | - | integration name (optional if only one) |
 | `art` | bool | `true` | show cover art when the card is big enough |
 
+## multi_graph
+
+One graph per group, one coloured line per sensor, with a legend of the current values.
+
+![multi_graph](img/gallery/multi_graph.png)
+
+```yaml
+- type: multi_graph
+  at: [0, 0, 1, 1]
+  graphs:
+  - title: Temperature
+    series:
+    - {entity: sensor.example, label: Example, color: '#4ad682'}
+  hours: 24
+  style: btop
+```
+
+| option | type | default | description |
+|---|---|---|---|
+| `name` | string | - |  |
+| `integration` | string | - | integration name (optional if only one) |
+| `graphs` | yaml | `[{series: [{color: '#4ad682', entity: sensor.example, label: Example}], title: Temperature}]` | list of {title, series: [{entity, label, color (#rrggbb), dashed}]} |
+| `hours` | float | `24` | graph length in hours |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
+
 ## node
 
 A remote machine via Prometheus node_exporter. Config: url (e.g. http://nas.lan:9100/metrics), name.
@@ -556,6 +613,7 @@ A remote machine via Prometheus node_exporter. Config: url (e.g. http://nas.lan:
 |---|---|---|---|
 | `name` | string | - |  |
 | `url` | string | `http://host:9100/metrics` | node_exporter metrics URL |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## printer
 
@@ -655,7 +713,7 @@ integrations:
 
 ## proxmox
 
-Proxmox node: CPU/memory/disk bars and the guest list. Needs a `proxmox` integration.
+Proxmox node, btop style: CPU and memory graphs (last 10 minutes), disk meter, and the guest list with load. Needs a `proxmox` integration.
 
 ![proxmox](img/gallery/proxmox.png)
 
@@ -676,6 +734,7 @@ integrations:
 |---|---|---|---|
 | `name` | string | - | title (defaults to the node name) |
 | `integration` | string | - | integration name (optional if only one) |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## screensaver
 
@@ -695,6 +754,30 @@ Idle-screen art that drifts slowly (so the same pixels never stay lit): the proj
 | `text` | string | `wigix` |  |
 | `style` | select | `bounce` |  |
 
+## sensor_graphs
+
+Each sensor as a labelled graph with its current value; optional battery level in the title. `sensors: [{entity: sensor.frog_temperature, label: Warm}, ...]`.
+
+![sensor_graphs](img/gallery/sensor_graphs.png)
+
+```yaml
+- type: sensor_graphs
+  at: [0, 0, 1, 1]
+  sensors:
+  - {entity: sensor.example, label: Temp}
+  hours: 24
+  style: btop
+```
+
+| option | type | default | description |
+|---|---|---|---|
+| `name` | string | - |  |
+| `integration` | string | - | integration name (optional if only one) |
+| `sensors` | yaml | `[{entity: sensor.example, label: Temp}]` | list of {entity, label, color (a theme name: accent, ok, warn, crit)} |
+| `battery` | entity | - | battery sensor shown in the title (optional) |
+| `hours` | float | `24` | graph length in hours |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
+
 ## snake
 
 Snake: swipe to steer, tap to restart after game over. Runs only while fullscreen. Config: `speed` (seconds per move, default 0.2). Use `on_tap: fullscreen` to open it.
@@ -713,7 +796,7 @@ Snake: swipe to steer, tap to restart after game over. Runs only while fullscree
 
 ## system
 
-btop-style stats for THIS machine: CPU, memory, disk, network. Config: disk (path, default /).
+btop-style panel for THIS machine: CPU, memory and network graphs plus a disk meter.
 
 ![system](img/gallery/system.png)
 
@@ -726,7 +809,9 @@ btop-style stats for THIS machine: CPU, memory, disk, network. Config: disk (pat
 | option | type | default | description |
 |---|---|---|---|
 | `title` | string | - | defaults to the hostname |
-| `disk` | string | `/` | mount point for the DSK bar |
+| `disk` | string | `/` | mount point for the disk meter |
+| `gpu` | bool | `true` | show a GPU graph when one is found (AMD or NVIDIA) |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## text
 
@@ -774,7 +859,7 @@ integrations:
 
 ## unraid
 
-Unraid server: CPU, memory, array usage, container counts. Needs an `unraid` integration.
+Unraid server, btop style: CPU and memory graphs (last 10 minutes), array usage and container counts. Needs an `unraid` integration.
 
 ![unraid](img/gallery/unraid.png)
 
@@ -795,6 +880,7 @@ integrations:
 |---|---|---|---|
 | `name` | string | `Unraid` |  |
 | `integration` | string | - | integration name (optional if only one) |
+| `style` | select | `btop` | btop = outlined panel with the title in the border; card = filled card |
 
 ## uptime_kuma
 
